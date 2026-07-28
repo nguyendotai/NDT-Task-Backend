@@ -13,6 +13,9 @@ build/
 # Prisma
 src/database/generated/
 
+# Local dev MongoDB data (standalone replica-set instance, not committed)
+.mongo-dev-data/
+
 # Test / coverage
 coverage/
 

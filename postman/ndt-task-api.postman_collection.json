@@ -14,7 +14,8 @@
     { "key": "accessToken", "value": "", "type": "string" },
     { "key": "workspaceId", "value": "", "type": "string" },
     { "key": "columnId", "value": "", "type": "string" },
-    { "key": "taskId", "value": "", "type": "string" }
+    { "key": "taskId", "value": "", "type": "string" },
+    { "key": "resetToken", "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -83,6 +84,72 @@
               "path": ["auth", "logout"]
             },
             "description": "Đăng xuất. Set cookie refreshToken thành empty/expired."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('accessToken', body.data.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Làm mới Access Token bằng refreshToken cookie (Postman cookie jar tự gửi). Refresh Token được rotate, tự động cập nhật accessToken vào biến collection."
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user1@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "forgot-password"]
+            },
+            "description": "Luôn trả 200 với message chung chung (chống user-enumeration). Nếu email tồn tại, token reset được gửi qua email (Queue) — cần lấy {{resetToken}} từ email hoặc DB để test Reset Password."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"newPassword\": \"newPassword456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "reset-password"]
+            },
+            "description": "Đặt lại mật khẩu bằng token nhận từ Forgot Password. Thành công sẽ revoke toàn bộ refresh token hiện có của user."
           },
           "response": []
         }
