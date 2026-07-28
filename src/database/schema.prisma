@@ -7,5 +7,384 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Models are added per domain module (user, workspace, board, task, ...)
-// following .claude/database.md (id: UUID v4, camelCase fields, createdAt/updatedAt, soft delete).
+// =========================================================================
+// AUTH
+// =========================================================================
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @map("_id")
+  userId    String
+  tokenHash String    @unique
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("refreshTokens")
+}
+
+// =========================================================================
+// USER
+// =========================================================================
+
+enum SystemRole {
+  USER
+  ADMIN
+}
+
+model User {
+  id             String     @id @default(uuid()) @map("_id")
+  email          String     @unique
+  passwordHash   String
+  name           String
+  avatarUrl      String?
+  avatarPublicId String?
+  settings       Json?
+  systemRole     SystemRole @default(USER)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  deletedAt      DateTime?
+  deletedBy      String?
+
+  refreshTokens        RefreshToken[]
+  ownedWorkspaces      Workspace[]
+  workspaceMemberships WorkspaceMember[]
+  sentInvitations      WorkspaceInvitation[]
+  assignedTasks        Task[]                @relation("TaskAssignee")
+  createdTasks         Task[]                @relation("TaskCreator")
+  comments             Comment[]
+  attachments          Attachment[]
+  notifications        Notification[]
+  activityLogs         ActivityLog[]
+
+  @@map("users")
+}
+
+// =========================================================================
+// WORKSPACE (Workspace, Member, Invitation)
+// =========================================================================
+
+enum WorkspaceType {
+  KANBAN
+  SCRUM
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+model Workspace {
+  id          String        @id @default(uuid()) @map("_id")
+  name        String
+  type        WorkspaceType
+  description String?
+  ownerId     String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  owner         User                  @relation(fields: [ownerId], references: [id])
+  members       WorkspaceMember[]
+  invitations   WorkspaceInvitation[]
+  board         Board?
+  sprints       Sprint[]
+  notifications Notification[]
+  activityLogs  ActivityLog[]
+
+  @@index([ownerId])
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String        @id @default(uuid()) @map("_id")
+  workspaceId String
+  userId      String
+  role        WorkspaceRole @default(MEMBER)
+  invitedBy   String?
+  joinedAt    DateTime      @default(now())
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId])
+  @@index([userId])
+  @@map("workspaceMembers")
+}
+
+model WorkspaceInvitation {
+  id          String           @id @default(uuid()) @map("_id")
+  workspaceId String
+  email       String
+  role        WorkspaceRole    @default(MEMBER)
+  token       String           @unique
+  status      InvitationStatus @default(PENDING)
+  invitedBy   String
+  expiresAt   DateTime
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  inviter   User      @relation(fields: [invitedBy], references: [id])
+
+  @@index([workspaceId])
+  @@index([email])
+  @@map("workspaceInvitations")
+}
+
+// =========================================================================
+// BOARD & COLUMN
+// (Board tự sinh 1-1 theo Workspace, cấm tạo/sửa/xóa thủ công)
+// =========================================================================
+
+model Board {
+  id          String    @id @default(uuid()) @map("_id")
+  workspaceId String    @unique
+  name        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  columns   Column[]
+
+  @@map("boards")
+}
+
+model Column {
+  id        String    @id @default(uuid()) @map("_id")
+  boardId   String
+  name      String
+  order     Int
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  deletedBy String?
+
+  board Board  @relation(fields: [boardId], references: [id])
+  tasks Task[]
+
+  @@index([boardId])
+  @@map("columns")
+}
+
+// =========================================================================
+// SPRINT (chỉ tồn tại trong Workspace type = SCRUM, enforce ở Service layer)
+// =========================================================================
+
+enum SprintStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+}
+
+model Sprint {
+  id          String       @id @default(uuid()) @map("_id")
+  workspaceId String
+  name        String
+  goal        String?
+  status      SprintStatus @default(PLANNED)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  tasks     Task[]
+
+  @@index([workspaceId])
+  @@index([status])
+  @@map("sprints")
+}
+
+// =========================================================================
+// TASK
+// =========================================================================
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+model Task {
+  id           String       @id @default(uuid()) @map("_id")
+  columnId     String
+  sprintId     String?
+  title        String
+  description  String?
+  priority     TaskPriority @default(MEDIUM)
+  status       TaskStatus   @default(TODO)
+  order        Int
+  backlogOrder Int?
+  dueDate      DateTime?
+  assigneeId   String?
+  createdBy    String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+  deletedBy    String?
+
+  column      Column          @relation(fields: [columnId], references: [id])
+  sprint      Sprint?         @relation(fields: [sprintId], references: [id])
+  assignee    User?           @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  creator     User            @relation("TaskCreator", fields: [createdBy], references: [id])
+  comments    Comment[]
+  checklist   ChecklistItem[]
+  attachments Attachment[]
+
+  @@index([columnId])
+  @@index([sprintId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("tasks")
+}
+
+// =========================================================================
+// COMMENT / CHECKLIST / ATTACHMENT
+// =========================================================================
+
+model Comment {
+  id        String    @id @default(uuid()) @map("_id")
+  taskId    String
+  authorId  String
+  content   String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  deletedBy String?
+
+  task   Task @relation(fields: [taskId], references: [id])
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([taskId])
+  @@map("comments")
+}
+
+model ChecklistItem {
+  id        String    @id @default(uuid()) @map("_id")
+  taskId    String
+  title     String
+  isDone    Boolean   @default(false)
+  order     Int
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  deletedBy String?
+
+  task Task @relation(fields: [taskId], references: [id])
+
+  @@index([taskId])
+  @@map("checklistItems")
+}
+
+model Attachment {
+  id           String    @id @default(uuid()) @map("_id")
+  taskId       String
+  uploaderId   String
+  fileName     String
+  fileUrl      String
+  filePublicId String
+  fileSize     Int
+  mimeType     String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  deletedBy    String?
+
+  task     Task @relation(fields: [taskId], references: [id])
+  uploader User @relation(fields: [uploaderId], references: [id])
+
+  @@index([taskId])
+  @@map("attachments")
+}
+
+// =========================================================================
+// NOTIFICATION (system-generated, scoped theo Workspace)
+// =========================================================================
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_UPDATED
+  COMMENT_ADDED
+  MENTION
+  WORKSPACE_INVITATION
+}
+
+model Notification {
+  id          String           @id @default(uuid()) @map("_id")
+  workspaceId String
+  recipientId String
+  type        NotificationType
+  title       String
+  message     String
+  metadata    Json?
+  isRead      Boolean          @default(false)
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  recipient User      @relation(fields: [recipientId], references: [id])
+
+  @@index([workspaceId])
+  @@index([recipientId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+// =========================================================================
+// ACTIVITY LOG (append-only — cấm sửa/xóa, không có updatedAt/deletedAt)
+// =========================================================================
+
+model ActivityLog {
+  id          String   @id @default(uuid()) @map("_id")
+  workspaceId String
+  actorId     String
+  entityType  String
+  entityId    String
+  action      String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  actor     User      @relation(fields: [actorId], references: [id])
+
+  @@index([workspaceId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("activityLogs")
+}
