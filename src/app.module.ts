@@ -5,6 +5,7 @@ import { BullModule } from '@nestjs/bullmq';
 import type { StringValue } from 'ms';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './modules/auth/auth.module';
 import { PrismaModule } from './database/prisma.module';
 import { RedisModule } from './config/redis.module';
 import { MailModule } from './config/mail.module';
@@ -55,6 +56,7 @@ import cloudinaryConfig from './config/cloudinary.config';
     RedisModule,
     MailModule,
     CloudinaryModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

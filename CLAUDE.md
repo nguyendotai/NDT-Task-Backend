@@ -13,6 +13,7 @@ Tài liệu quy định toàn bộ tiêu chuẩn phát triển Backend của d�
 - **Controller (Cực mỏng)**: Chỉ nhận request, validate qua DTO, gọi Service, trả response, áp dụng Guard/Decorator/Interceptor. ❌ Cấm: logic nghiệp vụ, query DB, gọi Prisma/Repository, xử lý Transaction, gửi email/socket, upload file.
 - **Service (Nơi chứa logic nghiệp vụ)**: Được phép gọi Repository, Redis, BullMQ, Cloudinary, gửi socket, chạy Transaction, check Business Rules. ❌ Cấm: Trả HTTP Response, đọc req/res trực tiếp.
 - **Repository (Lớp duy nhất làm việc với Prisma)**: CRUD, query, phân trang, lọc, sắp xếp, aggregate. ❌ Cấm: logic nghiệp vụ, Auth/Permission.
+- **⚠️ Prisma + MongoDB — null field**: Mọi field nullable dùng để filter (`deletedAt`, `revokedAt`, `usedAt`...) **BẮT BUỘC ghi tường minh `null` lúc `create()`**. MongoDB không tự có field rỗng như SQL — nếu field bị bỏ qua lúc tạo, nó **không tồn tại** trong document, và filter kiểu `where: { deletedAt: null }` (kết hợp thêm điều kiện khác) sẽ **không khớp** document đó (Prisma dịch sang `$expr` yêu cầu field phải tồn tại). Luôn viết `data: { ...input, deletedAt: null, deletedBy: null }` (tương tự cho các field nullable khác dùng để filter) trong mọi Repository `.create()`.
 
 ## 3. CƠ CHẾ BỔ TRỢ & BẢO MẬT
 - **Authentication**: JWT Access Token (sống ngắn) + Refresh Token (HTTP Only Cookie, thu hồi được, cấm trả trong body).

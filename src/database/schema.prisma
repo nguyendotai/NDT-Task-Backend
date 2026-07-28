@@ -28,6 +28,20 @@ model RefreshToken {
   @@map("refreshTokens")
 }
 
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @map("_id")
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("passwordResetTokens")
+}
+
 // =========================================================================
 // USER
 // =========================================================================
@@ -52,6 +66,7 @@ model User {
   deletedBy      String?
 
   refreshTokens        RefreshToken[]
+  passwordResetTokens  PasswordResetToken[]
   ownedWorkspaces      Workspace[]
   workspaceMemberships WorkspaceMember[]
   sentInvitations      WorkspaceInvitation[]
