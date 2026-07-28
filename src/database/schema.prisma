@@ -1,0 +1,11 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// Models are added per domain module (user, workspace, board, task, ...)
+// following .claude/database.md (id: UUID v4, camelCase fields, createdAt/updatedAt, soft delete).
