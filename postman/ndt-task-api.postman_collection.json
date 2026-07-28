@@ -156,6 +156,59 @@
       ]
     },
     {
+      "name": "User",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            },
+            "description": "Lấy profile của user đang đăng nhập (Bearer token)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"settings\": {\n    \"theme\": \"dark\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            },
+            "description": "Cập nhật name/settings. Không nhận avatarUrl trực tiếp — dùng Upload Avatar bên dưới."
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Avatar",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "file", "type": "file", "src": [] }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/me/avatar",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me", "avatar"]
+            },
+            "description": "Upload ảnh avatar (JPEG/PNG/WEBP, tối đa 5MB) — chọn file ở tab Body > form-data. Lưu vào Cloudinary, overwrite avatar cũ."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Workspace",
       "item": [
         {
