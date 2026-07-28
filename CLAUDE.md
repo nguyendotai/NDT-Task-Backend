@@ -23,4 +23,11 @@ Tài liệu quy định toàn bộ tiêu chuẩn phát triển Backend của d�
 - **Logging**: Chỉ ghi log Startup, Error, Warning, Audit. Cấm log password, token, OTP, cookie, secret.
 
 ## 4. DEFINITION OF DONE (DOD)
-Build OK; không lỗi TS; Prisma Schema hợp lệ; Migration/Seed OK; API & DB đúng chuẩn `api-contract.md` & `database.md`; đúng Dependency Rule; cập nhật CHANGELOG.md và PROJECT_STATUS.md.
+Build OK; không lỗi TS; Prisma Schema hợp lệ; Migration/Seed OK; API & DB đúng chuẩn `api-contract.md` & `database.md`; đúng Dependency Rule; cập nhật CHANGELOG.md, PROJECT_STATUS.md và **Postman Collection** (mục 5) nếu có đổi API.
+
+## 5. POSTMAN COLLECTION (API TESTING)
+- File: `postman/ndt-task-api.postman_collection.json` (+ `postman/ndt-task-api.postman_environment.json`). Collection chỉ chứa endpoint đã có trong `api-spec.md` — không tự thêm endpoint chưa được document.
+- **Bắt buộc cập nhật đồng thời** với `api-spec.md` mỗi khi Thêm/Sửa/Xóa bất kỳ Endpoint nào: request mới/sửa/xóa tương ứng trong collection phải khớp field, method, status code theo `api-contract.md`/`api-spec.md`.
+- Mỗi Request nhóm theo folder trùng tên Module (Auth, Workspace, Task...). Có `description` ngắn gọn nêu mục đích + lưu ý (nếu phụ thuộc endpoint khác chưa có).
+- Dùng biến collection (`{{baseUrl}}`, `{{accessToken}}`, `{{workspaceId}}`...) — cấm hardcode giá trị thật/secret. Request nào trả về id cần dùng lại (login, create...) phải có Test script `pm.collectionVariables.set(...)` để tự chain sang request sau.
+- **Checklist khi đổi Endpoint**: Sửa Controller -> Cập nhật `api-spec.md` -> Cập nhật Postman Collection (thêm/sửa/xóa request + biến liên quan) -> Test lại request bị ảnh hưởng.
