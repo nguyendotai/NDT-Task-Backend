@@ -6,6 +6,7 @@ import type { StringValue } from 'ms';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
+import { UserModule } from './modules/user/user.module';
 import { PrismaModule } from './database/prisma.module';
 import { RedisModule } from './config/redis.module';
 import { MailModule } from './config/mail.module';
@@ -57,6 +58,7 @@ import cloudinaryConfig from './config/cloudinary.config';
     MailModule,
     CloudinaryModule,
     AuthModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [AppService],
