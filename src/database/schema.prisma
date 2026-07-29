@@ -271,6 +271,7 @@ model Task {
   status       TaskStatus   @default(TODO)
   order        Int
   backlogOrder Int?
+  startDate    DateTime?
   dueDate      DateTime?
   assigneeId   String?
   createdBy    String

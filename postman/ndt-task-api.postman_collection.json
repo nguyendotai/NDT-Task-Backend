@@ -551,7 +551,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"columnId\": \"{{columnId}}\",\n  \"title\": \"Sample Task\",\n  \"description\": \"Created from Postman\",\n  \"priority\": \"MEDIUM\",\n  \"dueDate\": \"2026-08-15T00:00:00.000Z\"\n}"
+              "raw": "{\n  \"columnId\": \"{{columnId}}\",\n  \"title\": \"Sample Task\",\n  \"description\": \"Created from Postman\",\n  \"priority\": \"MEDIUM\",\n  \"startDate\": \"2026-08-01T00:00:00.000Z\",\n  \"dueDate\": \"2026-08-15T00:00:00.000Z\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/tasks",
@@ -661,6 +661,32 @@
               "path": ["tasks", "{{taskId}}"]
             },
             "description": "Soft delete Task. Quyền giống Update Task."
+          },
+          "response": []
+        },
+        {
+          "name": "List Archived Tasks",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/tasks/archived",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "tasks", "archived"]
+            },
+            "description": "Danh sách Task đã xóa mềm trong Workspace (tab Archive). Chỉ Owner/Admin (403 với Member)."
+          },
+          "response": []
+        },
+        {
+          "name": "Restore Task",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/restore",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "restore"]
+            },
+            "description": "Khôi phục Task đã xóa mềm. Chỉ Owner/Admin (403 với Member). 404 nếu Task chưa từng bị xóa."
           },
           "response": []
         }

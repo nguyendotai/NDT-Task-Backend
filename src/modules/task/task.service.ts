@@ -41,6 +41,14 @@ export class TaskService {
     const workspaceId = column.board.workspaceId;
     await this.workspaceService.assertMembership(workspaceId, userId);
 
+    if (
+      dto.startDate &&
+      dto.dueDate &&
+      new Date(dto.startDate).getTime() > new Date(dto.dueDate).getTime()
+    ) {
+      throw new BadRequestException('Ngày bắt đầu phải trước hạn hoàn thành');
+    }
+
     const order = await this.taskRepository.countActiveTasksInColumn(
       dto.columnId,
     );
@@ -49,6 +57,7 @@ export class TaskService {
       title: dto.title,
       description: dto.description,
       priority: dto.priority,
+      startDate: dto.startDate ? new Date(dto.startDate) : undefined,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       order,
       createdBy: userId,
@@ -164,11 +173,24 @@ export class TaskService {
       );
     }
 
+    const effectiveStartDate = dto.startDate
+      ? new Date(dto.startDate)
+      : task.startDate;
+    const effectiveDueDate = dto.dueDate ? new Date(dto.dueDate) : task.dueDate;
+    if (
+      effectiveStartDate &&
+      effectiveDueDate &&
+      effectiveStartDate.getTime() > effectiveDueDate.getTime()
+    ) {
+      throw new BadRequestException('Ngày bắt đầu phải trước hạn hoàn thành');
+    }
+
     const updated = await this.taskRepository.update(taskId, {
       title: dto.title,
       description: dto.description,
       priority: dto.priority,
       status: dto.status,
+      startDate: dto.startDate ? new Date(dto.startDate) : undefined,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       columnId: targetColumnId,
       order,
@@ -218,6 +240,53 @@ export class TaskService {
       entityId: taskId,
       action: 'task.deleted',
     });
+  }
+
+  async listArchived(
+    userId: string,
+    workspaceId: string,
+  ): Promise<TaskEntity[]> {
+    await this.workspaceService.assertActiveWorkspace(workspaceId);
+    const member = await this.workspaceService.assertMembership(
+      workspaceId,
+      userId,
+    );
+    if (member.role === WorkspaceRole.MEMBER) {
+      throw new ForbiddenException('Chỉ Owner/Admin được xem Task đã xóa');
+    }
+
+    const tasks =
+      await this.taskRepository.listArchivedByWorkspace(workspaceId);
+    return tasks.map((task) => this.toTaskEntity(task));
+  }
+
+  async restore(userId: string, taskId: string): Promise<TaskWithStar> {
+    const task = await this.taskRepository.findDeletedById(taskId);
+    if (!task) {
+      throw new NotFoundException('Không tìm thấy Task đã xóa');
+    }
+    const column = await this.getActiveColumnOrThrow(task.columnId);
+    const workspaceId = column.board.workspaceId;
+
+    const member = await this.workspaceService.assertMembership(
+      workspaceId,
+      userId,
+    );
+    if (member.role === WorkspaceRole.MEMBER) {
+      throw new ForbiddenException('Chỉ Owner/Admin được khôi phục Task');
+    }
+
+    const restored = await this.taskRepository.restore(taskId);
+
+    await this.activityLogService.record({
+      workspaceId,
+      actorId: userId,
+      entityType: 'Task',
+      entityId: taskId,
+      action: 'task.restored',
+    });
+
+    return { ...this.toTaskEntity(restored), isStarred: false };
   }
 
   async star(userId: string, taskId: string): Promise<void> {
@@ -325,6 +394,7 @@ export class TaskService {
       status: task.status,
       order: task.order,
       backlogOrder: task.backlogOrder,
+      startDate: task.startDate,
       dueDate: task.dueDate,
       assigneeId: task.assigneeId,
       createdBy: task.createdBy,
