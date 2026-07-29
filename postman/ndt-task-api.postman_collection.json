@@ -252,11 +252,12 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/workspaces",
+              "raw": "{{baseUrl}}/workspaces?starred=false",
               "host": ["{{baseUrl}}"],
-              "path": ["workspaces"]
+              "path": ["workspaces"],
+              "query": [{ "key": "starred", "value": "false", "disabled": true }]
             },
-            "description": "Danh sách Workspace mà user hiện tại là Member Active (kèm myRole)."
+            "description": "Danh sách Workspace mà user hiện tại là Member Active (kèm myRole, isStarred). Bật query starred=true để chỉ lấy Workspace đã đánh dấu sao."
           },
           "response": []
         },
@@ -332,6 +333,32 @@
               "path": ["workspaces", "{{workspaceId}}", "leave"]
             },
             "description": "Admin/Member. Owner không được rời (403) — phải Transfer Owner trước."
+          },
+          "response": []
+        },
+        {
+          "name": "Star Workspace",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/star",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "star"]
+            },
+            "description": "Đánh dấu sao Workspace (riêng theo user hiện tại)."
+          },
+          "response": []
+        },
+        {
+          "name": "Unstar Workspace",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/star",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "star"]
+            },
+            "description": "Bỏ đánh dấu sao Workspace."
           },
           "response": []
         },
@@ -466,6 +493,40 @@
       ]
     },
     {
+      "name": "Board",
+      "item": [
+        {
+          "name": "Get Board By Workspace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.data.columns && body.data.columns.length) {",
+                  "    pm.collectionVariables.set('columnId', body.data.columns[0].id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/board",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "board"]
+            },
+            "description": "Lấy Board + danh sách Column (mặc định To Do/In Progress/Done) của Workspace. Tự động lưu columnId (Column đầu tiên) vào biến collection. Không có API tạo/sửa/xóa Board/Column thủ công (đúng board.md)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Task",
       "item": [
         {
@@ -496,7 +557,108 @@
               "host": ["{{baseUrl}}"],
               "path": ["tasks"]
             },
-            "description": "Tạo Task trong 1 Column. api-spec.md chưa có endpoint tạo Board/Column, nên tạm thời set {{columnId}} thủ công (ví dụ lấy trực tiếp từ MongoDB) cho tới khi module Board/Column được implement."
+            "description": "Tạo Task trong 1 Column (lấy {{columnId}} từ Board > Get Board By Workspace). Mọi Member Active của Workspace đều được tạo. Tự động lưu taskId."
+          },
+          "response": []
+        },
+        {
+          "name": "List My Tasks",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/me?done=false&starred=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "me"],
+              "query": [
+                { "key": "done", "value": "false", "disabled": true },
+                { "key": "starred", "value": "false", "disabled": true }
+              ]
+            },
+            "description": "Task được giao cho user hiện tại (assigneeId), gộp từ mọi Workspace — dùng cho Dashboard. Bật query done=true/false hoặc starred=true để lọc."
+          },
+          "response": []
+        },
+        {
+          "name": "List Tasks By Workspace",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/tasks?done=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "tasks"],
+              "query": [{ "key": "done", "value": "false", "disabled": true }]
+            },
+            "description": "Toàn bộ Task của 1 Workspace (dùng cho màn hình Board). Bật query done=true/false để lọc."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Task By Id",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}"]
+            },
+            "description": "Chi tiết Task. Mọi Member Active của Workspace chứa Task đều xem được."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Task",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Sample Task (updated)\",\n  \"status\": \"IN_PROGRESS\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}"]
+            },
+            "description": "Owner/Admin sửa được mọi Task; Member chỉ sửa được Task do mình tạo hoặc được giao (403 nếu không). Có thể thêm assigneeId (userId của 1 Member trong Workspace) để gán Task."
+          },
+          "response": []
+        },
+        {
+          "name": "Star Task",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/star",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "star"]
+            },
+            "description": "Đánh dấu sao Task (riêng theo user hiện tại, idempotent)."
+          },
+          "response": []
+        },
+        {
+          "name": "Unstar Task",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/star",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "star"]
+            },
+            "description": "Bỏ đánh dấu sao Task."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Task",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}"]
+            },
+            "description": "Soft delete Task. Quyền giống Update Task."
           },
           "response": []
         }

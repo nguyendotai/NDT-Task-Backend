@@ -84,12 +84,61 @@ export class WorkspaceService {
 
   async listMine(
     userId: string,
-  ): Promise<(WorkspaceEntity & { myRole: WorkspaceRole })[]> {
-    const memberships = await this.workspaceRepository.listForUser(userId);
-    return memberships.map(({ workspace, role }) => ({
+    starredOnly?: boolean,
+  ): Promise<
+    (WorkspaceEntity & { myRole: WorkspaceRole; isStarred: boolean })[]
+  > {
+    const memberships = await this.workspaceRepository.listForUser(
+      userId,
+      starredOnly,
+    );
+    return memberships.map(({ workspace, role, isStarred }) => ({
       ...this.toWorkspaceEntity(workspace),
       myRole: role,
+      isStarred,
     }));
+  }
+
+  async star(workspaceId: string, userId: string): Promise<void> {
+    await this.getActiveWorkspaceOrThrow(workspaceId);
+    const member = await this.assertMember(workspaceId, userId);
+    await this.workspaceRepository.setMemberStarred(member.id, true);
+  }
+
+  async unstar(workspaceId: string, userId: string): Promise<void> {
+    await this.getActiveWorkspaceOrThrow(workspaceId);
+    const member = await this.assertMember(workspaceId, userId);
+    await this.workspaceRepository.setMemberStarred(member.id, false);
+  }
+
+  /**
+   * Public wrapper cho các module domain khác (Board/Task/Sprint...) tái sử
+   * dụng để xác thực Workspace tồn tại mà không phải tự query Prisma.
+   */
+  async assertActiveWorkspace(workspaceId: string): Promise<WorkspaceEntity> {
+    const workspace = await this.getActiveWorkspaceOrThrow(workspaceId);
+    return this.toWorkspaceEntity(workspace);
+  }
+
+  /** Public wrapper: throw 403 nếu user không phải Member Active của Workspace. */
+  async assertMembership(
+    workspaceId: string,
+    userId: string,
+  ): Promise<WorkspaceMemberEntity> {
+    const member = await this.assertMember(workspaceId, userId);
+    return this.toMemberEntity(member);
+  }
+
+  /** Không throw — dùng để validate 1 user BẤT KỲ (vd. assigneeId) có phải Member Active hay không. */
+  async findMembership(
+    workspaceId: string,
+    userId: string,
+  ): Promise<WorkspaceMemberEntity | null> {
+    const member = await this.workspaceRepository.findActiveMemberByUserId(
+      workspaceId,
+      userId,
+    );
+    return member ? this.toMemberEntity(member) : null;
   }
 
   async getDetail(

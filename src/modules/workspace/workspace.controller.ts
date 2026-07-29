@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -29,8 +30,14 @@ export class WorkspaceController {
   }
 
   @Get()
-  listMine(@CurrentUser() user: UserEntity) {
-    return this.workspaceService.listMine(user.id);
+  listMine(
+    @CurrentUser() user: UserEntity,
+    @Query('starred') starred?: string,
+  ) {
+    return this.workspaceService.listMine(
+      user.id,
+      starred === undefined ? undefined : starred === 'true',
+    );
   }
 
   @Post('invitations/:token/accept')
@@ -80,6 +87,16 @@ export class WorkspaceController {
   @Post(':id/leave')
   leave(@CurrentUser() user: UserEntity, @Param('id') id: string) {
     return this.workspaceService.leave(id, user.id);
+  }
+
+  @Post(':id/star')
+  star(@CurrentUser() user: UserEntity, @Param('id') id: string) {
+    return this.workspaceService.star(id, user.id);
+  }
+
+  @Delete(':id/star')
+  unstar(@CurrentUser() user: UserEntity, @Param('id') id: string) {
+    return this.workspaceService.unstar(id, user.id);
   }
 
   @Get(':id/members')

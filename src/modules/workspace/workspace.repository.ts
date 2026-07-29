@@ -75,9 +75,13 @@ export class WorkspaceRepository {
     });
   }
 
-  async listForUser(userId: string) {
+  async listForUser(userId: string, starredOnly?: boolean) {
     const memberships = await this.prisma.workspaceMember.findMany({
-      where: { userId, deletedAt: null },
+      where: {
+        userId,
+        deletedAt: null,
+        ...(starredOnly ? { isStarred: true } : {}),
+      },
       include: { workspace: true },
     });
     return memberships
@@ -85,6 +89,7 @@ export class WorkspaceRepository {
       .map((membership) => ({
         workspace: membership.workspace,
         role: membership.role,
+        isStarred: membership.isStarred,
       }));
   }
 
@@ -183,6 +188,13 @@ export class WorkspaceRepository {
     return this.prisma.workspaceMember.update({
       where: { id: memberId },
       data: { deletedAt: new Date(), deletedBy },
+    });
+  }
+
+  setMemberStarred(memberId: string, isStarred: boolean) {
+    return this.prisma.workspaceMember.update({
+      where: { id: memberId },
+      data: { isStarred },
     });
   }
 

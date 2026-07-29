@@ -76,6 +76,7 @@ model User {
   attachments          Attachment[]
   notifications        Notification[]
   activityLogs         ActivityLog[]
+  taskStars            TaskStar[]
 
   @@map("users")
 }
@@ -131,6 +132,7 @@ model WorkspaceMember {
   userId      String
   role        WorkspaceRole @default(MEMBER)
   invitedBy   String?
+  isStarred   Boolean       @default(false)
   joinedAt    DateTime      @default(now())
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -277,6 +279,7 @@ model Task {
   comments    Comment[]
   checklist   ChecklistItem[]
   attachments Attachment[]
+  stars       TaskStar[]
 
   @@index([columnId])
   @@index([sprintId])
@@ -284,6 +287,23 @@ model Task {
   @@index([status])
   @@index([dueDate])
   @@map("tasks")
+}
+
+// Đánh dấu sao cho Task theo từng user (bookmark cá nhân, không phải business
+// record cần audit) — hard delete khi unstar, không áp dụng soft-delete.
+model TaskStar {
+  id        String   @id @default(uuid()) @map("_id")
+  taskId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([taskId, userId])
+  @@index([taskId])
+  @@index([userId])
+  @@map("taskStars")
 }
 
 // =========================================================================
