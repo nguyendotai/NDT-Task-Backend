@@ -1,4 +1,4 @@
-import { IsBooleanString, IsOptional } from 'class-validator';
+import { IsBooleanString, IsIn, IsOptional } from 'class-validator';
 
 export class ListTasksQueryDto {
   @IsOptional()
@@ -8,4 +8,8 @@ export class ListTasksQueryDto {
   @IsOptional()
   @IsBooleanString()
   starred?: string;
+
+  @IsOptional()
+  @IsIn(['assignee', 'assignee-or-creator'])
+  scope?: 'assignee' | 'assignee-or-creator';
 }

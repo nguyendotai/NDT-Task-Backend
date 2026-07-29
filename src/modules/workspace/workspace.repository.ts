@@ -83,6 +83,7 @@ export class WorkspaceRepository {
         ...(starredOnly ? { isStarred: true } : {}),
       },
       include: { workspace: true },
+      orderBy: { lastAccessedAt: 'desc' },
     });
     return memberships
       .filter((membership) => membership.workspace.deletedAt === null)
@@ -90,7 +91,15 @@ export class WorkspaceRepository {
         workspace: membership.workspace,
         role: membership.role,
         isStarred: membership.isStarred,
+        lastAccessedAt: membership.lastAccessedAt,
       }));
+  }
+
+  touchLastAccessed(memberId: string) {
+    return this.prisma.workspaceMember.update({
+      where: { id: memberId },
+      data: { lastAccessedAt: new Date() },
+    });
   }
 
   updateWorkspace(id: string, data: { name?: string; description?: string }) {

@@ -127,17 +127,18 @@ model Workspace {
 }
 
 model WorkspaceMember {
-  id          String        @id @default(uuid()) @map("_id")
-  workspaceId String
-  userId      String
-  role        WorkspaceRole @default(MEMBER)
-  invitedBy   String?
-  isStarred   Boolean       @default(false)
-  joinedAt    DateTime      @default(now())
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  deletedAt   DateTime?
-  deletedBy   String?
+  id             String        @id @default(uuid()) @map("_id")
+  workspaceId    String
+  userId         String
+  role           WorkspaceRole @default(MEMBER)
+  invitedBy      String?
+  isStarred      Boolean       @default(false)
+  lastAccessedAt DateTime      @default(now())
+  joinedAt       DateTime      @default(now())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+  deletedBy      String?
 
   workspace Workspace @relation(fields: [workspaceId], references: [id])
   user      User      @relation(fields: [userId], references: [id])

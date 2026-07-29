@@ -86,17 +86,24 @@ export class WorkspaceService {
     userId: string,
     starredOnly?: boolean,
   ): Promise<
-    (WorkspaceEntity & { myRole: WorkspaceRole; isStarred: boolean })[]
+    (WorkspaceEntity & {
+      myRole: WorkspaceRole;
+      isStarred: boolean;
+      lastAccessedAt: Date;
+    })[]
   > {
     const memberships = await this.workspaceRepository.listForUser(
       userId,
       starredOnly,
     );
-    return memberships.map(({ workspace, role, isStarred }) => ({
-      ...this.toWorkspaceEntity(workspace),
-      myRole: role,
-      isStarred,
-    }));
+    return memberships.map(
+      ({ workspace, role, isStarred, lastAccessedAt }) => ({
+        ...this.toWorkspaceEntity(workspace),
+        myRole: role,
+        isStarred,
+        lastAccessedAt,
+      }),
+    );
   }
 
   async star(workspaceId: string, userId: string): Promise<void> {
@@ -146,7 +153,8 @@ export class WorkspaceService {
     userId: string,
   ): Promise<WorkspaceEntity & { membersCount: number }> {
     const workspace = await this.getActiveWorkspaceOrThrow(workspaceId);
-    await this.assertMember(workspaceId, userId);
+    const member = await this.assertMember(workspaceId, userId);
+    await this.workspaceRepository.touchLastAccessed(member.id);
 
     const membersCount =
       await this.workspaceRepository.countActiveMembers(workspaceId);

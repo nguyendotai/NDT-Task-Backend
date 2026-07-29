@@ -566,15 +566,16 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/tasks/me?done=false&starred=false",
+              "raw": "{{baseUrl}}/tasks/me?done=false&starred=false&scope=assignee-or-creator",
               "host": ["{{baseUrl}}"],
               "path": ["tasks", "me"],
               "query": [
                 { "key": "done", "value": "false", "disabled": true },
-                { "key": "starred", "value": "false", "disabled": true }
+                { "key": "starred", "value": "false", "disabled": true },
+                { "key": "scope", "value": "assignee-or-creator", "disabled": true }
               ]
             },
-            "description": "Task được giao cho user hiện tại (assigneeId), gộp từ mọi Workspace — dùng cho Dashboard. Bật query done=true/false hoặc starred=true để lọc."
+            "description": "Task của user hiện tại, gộp từ mọi Workspace — dùng cho Dashboard. scope=assignee (mặc định) chỉ Task được giao; scope=assignee-or-creator (\"worked on\") gồm cả Task tự tạo, sắp theo updatedAt gần nhất. Bật thêm done=true/false hoặc starred=true để lọc."
           },
           "response": []
         },

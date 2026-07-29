@@ -1,6 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import { TaskPriority, TaskStatus } from '@prisma/client';
+import { Prisma, TaskPriority, TaskStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+
+// Dùng chung cho mọi query trả Task ra ngoài — nhúng sẵn workspaceId/name qua
+// chuỗi quan hệ Task -> Column -> Board -> Workspace để tránh N+1 lookup ở
+// Service khi cần hiển thị "Task thuộc Workspace nào" (Dashboard).
+const WORKSPACE_CONTEXT_INCLUDE = {
+  column: {
+    include: {
+      board: {
+        include: {
+          workspace: { select: { id: true, name: true } },
+        },
+      },
+    },
+  },
+} satisfies Prisma.TaskInclude;
 
 @Injectable()
 export class TaskRepository {
@@ -37,11 +52,15 @@ export class TaskRepository {
         deletedAt: null,
         deletedBy: null,
       },
+      include: WORKSPACE_CONTEXT_INCLUDE,
     });
   }
 
   findActiveById(id: string) {
-    return this.prisma.task.findFirst({ where: { id, deletedAt: null } });
+    return this.prisma.task.findFirst({
+      where: { id, deletedAt: null },
+      include: WORKSPACE_CONTEXT_INCLUDE,
+    });
   }
 
   update(
@@ -57,7 +76,11 @@ export class TaskRepository {
       assigneeId?: string;
     },
   ) {
-    return this.prisma.task.update({ where: { id }, data });
+    return this.prisma.task.update({
+      where: { id },
+      data,
+      include: WORKSPACE_CONTEXT_INCLUDE,
+    });
   }
 
   softDelete(id: string, deletedBy: string) {
@@ -86,19 +109,34 @@ export class TaskRepository {
         deletedAt: null,
         ...(status ? { status: { in: status } } : {}),
       },
+      include: WORKSPACE_CONTEXT_INCLUDE,
       orderBy: [{ columnId: 'asc' }, { order: 'asc' }],
     });
   }
 
-  listMine(userId: string, status?: TaskStatus[], taskIds?: string[]) {
+  listMine(
+    userId: string,
+    options: {
+      status?: TaskStatus[];
+      taskIds?: string[];
+      scope?: 'assignee' | 'assignee-or-creator';
+    } = {},
+  ) {
+    const { status, taskIds, scope = 'assignee' } = options;
     return this.prisma.task.findMany({
       where: {
-        assigneeId: userId,
+        ...(scope === 'assignee-or-creator'
+          ? { OR: [{ assigneeId: userId }, { createdBy: userId }] }
+          : { assigneeId: userId }),
         deletedAt: null,
         ...(status ? { status: { in: status } } : {}),
         ...(taskIds ? { id: { in: taskIds } } : {}),
       },
-      orderBy: { dueDate: 'asc' },
+      include: WORKSPACE_CONTEXT_INCLUDE,
+      orderBy:
+        scope === 'assignee-or-creator'
+          ? { updatedAt: 'desc' }
+          : { dueDate: 'asc' },
     });
   }
 

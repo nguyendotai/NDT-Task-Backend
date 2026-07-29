@@ -3,6 +3,8 @@ import { TaskPriority, TaskStatus } from '@prisma/client';
 export class TaskEntity {
   id: string;
   columnId: string;
+  workspaceId: string;
+  workspaceName: string;
   sprintId?: string | null;
   title: string;
   description?: string | null;
