@@ -37,6 +37,7 @@ export class TaskRepository {
     title: string;
     description?: string;
     priority?: TaskPriority;
+    startDate?: Date;
     dueDate?: Date;
     order: number;
     createdBy: string;
@@ -63,6 +64,13 @@ export class TaskRepository {
     });
   }
 
+  findDeletedById(id: string) {
+    return this.prisma.task.findFirst({
+      where: { id, NOT: { deletedAt: null } },
+      include: WORKSPACE_CONTEXT_INCLUDE,
+    });
+  }
+
   update(
     id: string,
     data: {
@@ -70,6 +78,7 @@ export class TaskRepository {
       description?: string;
       priority?: TaskPriority;
       status?: TaskStatus;
+      startDate?: Date | null;
       dueDate?: Date;
       columnId?: string;
       order?: number;
@@ -87,6 +96,14 @@ export class TaskRepository {
     return this.prisma.task.update({
       where: { id },
       data: { deletedAt: new Date(), deletedBy },
+    });
+  }
+
+  restore(id: string) {
+    return this.prisma.task.update({
+      where: { id },
+      data: { deletedAt: null, deletedBy: null },
+      include: WORKSPACE_CONTEXT_INCLUDE,
     });
   }
 
@@ -111,6 +128,29 @@ export class TaskRepository {
       },
       include: WORKSPACE_CONTEXT_INCLUDE,
       orderBy: [{ columnId: 'asc' }, { order: 'asc' }],
+    });
+  }
+
+  async listArchivedByWorkspace(workspaceId: string) {
+    const board = await this.prisma.board.findFirst({
+      where: { workspaceId, deletedAt: null },
+    });
+    if (!board) return [];
+
+    const columns = await this.prisma.column.findMany({
+      where: { boardId: board.id },
+      select: { id: true },
+    });
+    const columnIds = columns.map((column) => column.id);
+    if (columnIds.length === 0) return [];
+
+    return this.prisma.task.findMany({
+      where: {
+        columnId: { in: columnIds },
+        NOT: { deletedAt: null },
+      },
+      include: WORKSPACE_CONTEXT_INCLUDE,
+      orderBy: { deletedAt: 'desc' },
     });
   }
 

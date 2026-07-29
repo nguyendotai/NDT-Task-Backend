@@ -12,6 +12,7 @@ export class TaskEntity {
   status: TaskStatus;
   order: number;
   backlogOrder?: number | null;
+  startDate?: Date | null;
   dueDate?: Date | null;
   assigneeId?: string | null;
   createdBy: string;

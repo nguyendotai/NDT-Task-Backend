@@ -59,6 +59,11 @@ export class TaskController {
     return this.taskService.remove(user.id, id);
   }
 
+  @Post(':id/restore')
+  restore(@CurrentUser() user: UserEntity, @Param('id') id: string) {
+    return this.taskService.restore(user.id, id);
+  }
+
   @Post(':id/star')
   star(@CurrentUser() user: UserEntity, @Param('id') id: string) {
     return this.taskService.star(user.id, id);
@@ -86,5 +91,13 @@ export class WorkspaceTasksController {
       workspaceId,
       toBoolean(query.done),
     );
+  }
+
+  @Get(':workspaceId/tasks/archived')
+  listArchived(
+    @CurrentUser() user: UserEntity,
+    @Param('workspaceId') workspaceId: string,
+  ) {
+    return this.taskService.listArchived(user.id, workspaceId);
   }
 }
