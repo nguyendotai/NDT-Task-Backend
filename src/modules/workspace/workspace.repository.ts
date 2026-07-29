@@ -1,9 +1,14 @@
+import { randomInt } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { InvitationStatus, WorkspaceRole, WorkspaceType } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
 const DEFAULT_BOARD_NAME = 'Main Board';
 const DEFAULT_COLUMN_NAMES = ['To Do', 'In Progress', 'Done'];
+
+// Bỏ ký tự dễ nhầm lẫn (0/O, 1/I).
+const SHORT_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const SHORT_CODE_LENGTH = 6;
 
 @Injectable()
 export class WorkspaceRepository {
@@ -13,12 +18,16 @@ export class WorkspaceRepository {
   // Workspace
   // ---------------------------------------------------------------------
 
-  createWithDefaults(data: {
+  async createWithDefaults(data: {
     name: string;
     type: WorkspaceType;
     description?: string;
     ownerId: string;
+    avatarEmoji: string;
+    avatarColor: string;
   }) {
+    const shortCode = await this.generateUniqueShortCode();
+
     return this.prisma.$transaction(async (tx) => {
       const workspace = await tx.workspace.create({
         data: {
@@ -26,6 +35,9 @@ export class WorkspaceRepository {
           type: data.type,
           description: data.description,
           ownerId: data.ownerId,
+          shortCode,
+          avatarEmoji: data.avatarEmoji,
+          avatarColor: data.avatarColor,
           deletedAt: null,
           deletedBy: null,
         },
@@ -65,6 +77,20 @@ export class WorkspaceRepository {
     });
   }
 
+  private async generateUniqueShortCode(): Promise<string> {
+    for (;;) {
+      let code = '';
+      for (let i = 0; i < SHORT_CODE_LENGTH; i++) {
+        code += SHORT_CODE_ALPHABET[randomInt(SHORT_CODE_ALPHABET.length)];
+      }
+      const existing = await this.prisma.workspace.findFirst({
+        where: { shortCode: code },
+        select: { id: true },
+      });
+      if (!existing) return code;
+    }
+  }
+
   findActiveById(id: string) {
     return this.prisma.workspace.findFirst({ where: { id, deletedAt: null } });
   }
@@ -73,6 +99,58 @@ export class WorkspaceRepository {
     return this.prisma.workspaceMember.count({
       where: { workspaceId, deletedAt: null },
     });
+  }
+
+  /**
+   * Đếm Task active theo từng Workspace (qua chuỗi quan hệ Board -> Column ->
+   * Task) trong đúng 3 query bất kể số lượng Workspace, tránh N+1 khi liệt kê
+   * nhiều Workspace cùng lúc (GET /workspaces).
+   */
+  async countActiveTasksByWorkspaceIds(
+    workspaceIds: string[],
+  ): Promise<Record<string, number>> {
+    if (workspaceIds.length === 0) return {};
+
+    const boards = await this.prisma.board.findMany({
+      where: { workspaceId: { in: workspaceIds }, deletedAt: null },
+      select: { id: true, workspaceId: true },
+    });
+    if (boards.length === 0) return {};
+    const boardIdToWorkspaceId = new Map(
+      boards.map((board) => [board.id, board.workspaceId]),
+    );
+
+    const columns = await this.prisma.column.findMany({
+      where: {
+        boardId: { in: boards.map((board) => board.id) },
+        deletedAt: null,
+      },
+      select: { id: true, boardId: true },
+    });
+    if (columns.length === 0) return {};
+    const columnIdToBoardId = new Map(
+      columns.map((column) => [column.id, column.boardId]),
+    );
+
+    const grouped = await this.prisma.task.groupBy({
+      by: ['columnId'],
+      where: {
+        columnId: { in: columns.map((column) => column.id) },
+        deletedAt: null,
+      },
+      _count: { _all: true },
+    });
+
+    const counts: Record<string, number> = {};
+    for (const group of grouped) {
+      const boardId = columnIdToBoardId.get(group.columnId);
+      const workspaceId = boardId
+        ? boardIdToWorkspaceId.get(boardId)
+        : undefined;
+      if (!workspaceId) continue;
+      counts[workspaceId] = (counts[workspaceId] ?? 0) + group._count._all;
+    }
+    return counts;
   }
 
   async listForUser(userId: string, starredOnly?: boolean) {

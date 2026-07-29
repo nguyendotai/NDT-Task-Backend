@@ -243,6 +243,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["workspaces"]
             },
+            "description": "avatarEmoji/avatarColor là optional — bỏ trống để hệ thống tự chọn ngẫu nhiên 1 preset, hoặc gửi kèm cả 2 (vd \"avatarEmoji\": \"🚀\", \"avatarColor\": \"sky\") để tự chọn. Response trả thêm shortCode (mã 6 ký tự duy nhất).",
             "description": "Tạo Workspace (type: KANBAN | SCRUM). Tự động lưu workspaceId vào biến collection."
           },
           "response": []

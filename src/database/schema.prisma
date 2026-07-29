@@ -109,6 +109,12 @@ model Workspace {
   type        WorkspaceType
   description String?
   ownerId     String
+  // Mã ngắn hiển thị thay UUID dài trên UI (badge), sinh ngẫu nhiên lúc tạo.
+  shortCode   String        @unique
+  // Ảnh đại diện dạng preset (emoji + màu nền) — user tự chọn hoặc random lúc
+  // tạo Workspace, không phải ảnh upload thật (xem workspace-avatar-presets.ts).
+  avatarEmoji String
+  avatarColor String
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   deletedAt   DateTime?
