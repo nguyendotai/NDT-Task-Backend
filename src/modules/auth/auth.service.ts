@@ -12,6 +12,7 @@ import { compare, hash } from 'bcrypt';
 import ms, { type StringValue } from 'ms';
 import { AuthRepository } from './auth.repository';
 import { MailQueueService } from '../../config/mail-queue.service';
+import { withTimeout } from '../../common/utils/with-timeout.util';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -124,7 +125,7 @@ export class AuthService {
     const resetLink = `${frontendUrl}/reset-password?token=${rawToken}`;
 
     try {
-      await this.withTimeout(
+      await withTimeout(
         this.mailQueueService.enqueueSend({
           to: user.email,
           subject: 'Đặt lại mật khẩu NDT Task',
@@ -140,24 +141,6 @@ export class AuthService {
         `Không thể enqueue mail reset-password cho ${user.email}: ${(error as Error).message}`,
       );
     }
-  }
-
-  private withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(
-        () => reject(new Error(`Timed out after ${timeoutMs}ms`)),
-        timeoutMs,
-      );
-      promise
-        .then((value) => {
-          clearTimeout(timer);
-          resolve(value);
-        })
-        .catch((error: unknown) => {
-          clearTimeout(timer);
-          reject(error instanceof Error ? error : new Error(String(error)));
-        });
-    });
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<void> {
