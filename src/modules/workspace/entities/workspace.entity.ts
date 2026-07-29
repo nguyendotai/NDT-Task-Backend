@@ -6,6 +6,9 @@ export class WorkspaceEntity {
   type: WorkspaceType;
   description?: string | null;
   ownerId: string;
+  shortCode: string;
+  avatarEmoji: string;
+  avatarColor: string;
   createdAt: Date;
   updatedAt: Date;
 }

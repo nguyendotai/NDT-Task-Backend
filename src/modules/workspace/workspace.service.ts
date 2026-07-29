@@ -29,6 +29,10 @@ import { TransferOwnerDto } from './dto/transfer-owner.dto';
 import { WorkspaceEntity } from './entities/workspace.entity';
 import { WorkspaceMemberEntity } from './entities/workspace-member.entity';
 import { WorkspaceInvitationEntity } from './entities/workspace-invitation.entity';
+import {
+  isValidWorkspaceAvatar,
+  pickRandomWorkspaceAvatar,
+} from './workspace-avatar-presets';
 
 const INVITATION_TTL_MS = ms('7d');
 const ENQUEUE_TIMEOUT_MS = 3000;
@@ -64,11 +68,30 @@ export class WorkspaceService {
     ownerId: string,
     dto: CreateWorkspaceDto,
   ): Promise<WorkspaceEntity> {
+    let avatarEmoji = dto.avatarEmoji;
+    let avatarColor = dto.avatarColor;
+
+    if (avatarEmoji || avatarColor) {
+      if (
+        !avatarEmoji ||
+        !avatarColor ||
+        !isValidWorkspaceAvatar(avatarEmoji, avatarColor)
+      ) {
+        throw new BadRequestException('Ảnh đại diện Workspace không hợp lệ');
+      }
+    } else {
+      const preset = pickRandomWorkspaceAvatar();
+      avatarEmoji = preset.emoji;
+      avatarColor = preset.color;
+    }
+
     const workspace = await this.workspaceRepository.createWithDefaults({
       name: dto.name,
       type: dto.type,
       description: dto.description,
       ownerId,
+      avatarEmoji,
+      avatarColor,
     });
 
     await this.activityLogService.record({
@@ -90,18 +113,25 @@ export class WorkspaceService {
       myRole: WorkspaceRole;
       isStarred: boolean;
       lastAccessedAt: Date;
+      tasksCount: number;
     })[]
   > {
     const memberships = await this.workspaceRepository.listForUser(
       userId,
       starredOnly,
     );
+    const taskCounts =
+      await this.workspaceRepository.countActiveTasksByWorkspaceIds(
+        memberships.map((membership) => membership.workspace.id),
+      );
+
     return memberships.map(
       ({ workspace, role, isStarred, lastAccessedAt }) => ({
         ...this.toWorkspaceEntity(workspace),
         myRole: role,
         isStarred,
         lastAccessedAt,
+        tasksCount: taskCounts[workspace.id] ?? 0,
       }),
     );
   }
@@ -660,6 +690,9 @@ export class WorkspaceService {
       type: workspace.type,
       description: workspace.description,
       ownerId: workspace.ownerId,
+      shortCode: workspace.shortCode,
+      avatarEmoji: workspace.avatarEmoji,
+      avatarColor: workspace.avatarColor,
       createdAt: workspace.createdAt,
       updatedAt: workspace.updatedAt,
     };
