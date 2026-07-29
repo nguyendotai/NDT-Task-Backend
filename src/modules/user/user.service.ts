@@ -26,6 +26,11 @@ export class UserService {
     return this.toEntity(user);
   }
 
+  async findByEmail(email: string): Promise<UserEntity | null> {
+    const user = await this.userRepository.findByEmail(email);
+    return user ? this.toEntity(user) : null;
+  }
+
   async updateProfile(
     userId: string,
     dto: UpdateProfileDto,

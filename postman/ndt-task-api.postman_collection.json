@@ -13,6 +13,10 @@
     { "key": "baseUrl", "value": "http://localhost:5000/api/v1", "type": "string" },
     { "key": "accessToken", "value": "", "type": "string" },
     { "key": "workspaceId", "value": "", "type": "string" },
+    { "key": "memberId", "value": "", "type": "string" },
+    { "key": "invitationId", "value": "", "type": "string" },
+    { "key": "invitationToken", "value": "", "type": "string" },
+    { "key": "newOwnerId", "value": "", "type": "string" },
     { "key": "columnId", "value": "", "type": "string" },
     { "key": "taskId", "value": "", "type": "string" },
     { "key": "resetToken", "value": "", "type": "string" }
@@ -244,6 +248,19 @@
           "response": []
         },
         {
+          "name": "List My Workspaces",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces"]
+            },
+            "description": "Danh sách Workspace mà user hiện tại là Member Active (kèm myRole)."
+          },
+          "response": []
+        },
+        {
           "name": "Get Workspace By Id",
           "request": {
             "method": "GET",
@@ -253,6 +270,196 @@
               "path": ["workspaces", "{{workspaceId}}"]
             },
             "description": "Lấy chi tiết Workspace (kèm membersCount)."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Workspace",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Workspace Updated\",\n  \"description\": \"Updated description\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}"]
+            },
+            "description": "Chỉ Owner. Không đổi được type/ownerId."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Workspace",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}"]
+            },
+            "description": "Chỉ Owner. Soft delete cascade Workspace/Board/Column/Member/Invitation."
+          },
+          "response": []
+        },
+        {
+          "name": "Transfer Owner",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newOwnerId\": \"{{newOwnerId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/transfer-owner",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "transfer-owner"]
+            },
+            "description": "Chỉ Owner. newOwnerId phải là userId của một Member Active — set thủ công từ List Members."
+          },
+          "response": []
+        },
+        {
+          "name": "Leave Workspace",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/leave",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "leave"]
+            },
+            "description": "Admin/Member. Owner không được rời (403) — phải Transfer Owner trước."
+          },
+          "response": []
+        },
+        {
+          "name": "List Members",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "members"]
+            },
+            "description": "Danh sách Member Active. Lấy id (memberId) và user.id (newOwnerId) từ đây để set thủ công cho các request bên dưới."
+          },
+          "response": []
+        },
+        {
+          "name": "Invite Member",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('invitationId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user2@example.com\",\n  \"role\": \"MEMBER\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/members/invite",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "members", "invite"]
+            },
+            "description": "Owner/Admin. role chỉ được ADMIN hoặc MEMBER. Gửi email chứa link mời (best-effort qua Queue) — lấy {{invitationToken}} từ email hoặc DB để test Accept/Reject."
+          },
+          "response": []
+        },
+        {
+          "name": "List Pending Invitations",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/invitations",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "invitations"]
+            },
+            "description": "Owner/Admin. Chỉ liệt kê lời mời đang PENDING."
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke Invitation",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/invitations/{{invitationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "invitations", "{{invitationId}}"]
+            },
+            "description": "Owner/Admin. Chỉ áp dụng cho lời mời đang PENDING."
+          },
+          "response": []
+        },
+        {
+          "name": "Accept Invitation",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/invitations/{{invitationToken}}/accept",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "invitations", "{{invitationToken}}", "accept"]
+            },
+            "description": "Đăng nhập bằng tài khoản có email khớp lời mời trước khi gọi. Không yêu cầu là Member sẵn có."
+          },
+          "response": []
+        },
+        {
+          "name": "Reject Invitation",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/invitations/{{invitationToken}}/reject",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "invitations", "{{invitationToken}}", "reject"]
+            },
+            "description": "Đăng nhập bằng tài khoản có email khớp lời mời trước khi gọi."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Member Role",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"ADMIN\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/members/{{memberId}}/role",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "members", "{{memberId}}", "role"]
+            },
+            "description": "Chỉ Owner. role chỉ được ADMIN hoặc MEMBER (dùng Transfer Owner để đổi Owner)."
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Member",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/members/{{memberId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "members", "{{memberId}}"]
+            },
+            "description": "Owner (xóa Admin/Member) hoặc Admin (chỉ xóa Member). Không thể xóa Owner hoặc tự xóa chính mình."
           },
           "response": []
         }

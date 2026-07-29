@@ -10,6 +10,10 @@ export class UserRepository {
     return this.prisma.user.findFirst({ where: { id, deletedAt: null } });
   }
 
+  findByEmail(email: string) {
+    return this.prisma.user.findFirst({ where: { email, deletedAt: null } });
+  }
+
   updateProfile(
     userId: string,
     data: { name?: string; settings?: Prisma.InputJsonValue },

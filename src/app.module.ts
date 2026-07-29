@@ -7,6 +7,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
+import { WorkspaceModule } from './modules/workspace/workspace.module';
 import { PrismaModule } from './database/prisma.module';
 import { RedisModule } from './config/redis.module';
 import { MailModule } from './config/mail.module';
@@ -59,6 +60,7 @@ import cloudinaryConfig from './config/cloudinary.config';
     CloudinaryModule,
     AuthModule,
     UserModule,
+    WorkspaceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
