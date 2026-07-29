@@ -94,7 +94,11 @@ export class TaskService {
 
   async listMine(
     userId: string,
-    filters: { done?: boolean; starred?: boolean },
+    filters: {
+      done?: boolean;
+      starred?: boolean;
+      scope?: 'assignee' | 'assignee-or-creator';
+    },
   ): Promise<TaskWithStar[]> {
     let taskIds: string[] | undefined;
     if (filters.starred) {
@@ -103,11 +107,11 @@ export class TaskService {
       if (taskIds.length === 0) return [];
     }
 
-    const tasks = await this.taskRepository.listMine(
-      userId,
-      this.toStatusFilter(filters.done),
+    const tasks = await this.taskRepository.listMine(userId, {
+      status: this.toStatusFilter(filters.done),
       taskIds,
-    );
+      scope: filters.scope,
+    });
     return this.attachStarredFlag(userId, tasks, filters.starred);
   }
 
@@ -312,6 +316,8 @@ export class TaskService {
     return {
       id: task.id,
       columnId: task.columnId,
+      workspaceId: task.column.board.workspace.id,
+      workspaceName: task.column.board.workspace.name,
       sprintId: task.sprintId,
       title: task.title,
       description: task.description,

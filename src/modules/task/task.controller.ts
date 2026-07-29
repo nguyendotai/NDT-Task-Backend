@@ -36,6 +36,7 @@ export class TaskController {
     return this.taskService.listMine(user.id, {
       done: toBoolean(query.done),
       starred: toBoolean(query.starred),
+      scope: query.scope,
     });
   }
 
