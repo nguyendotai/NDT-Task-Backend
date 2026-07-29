@@ -1,14 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { AppLogger } from './common/logger/app-logger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { logger: new AppLogger() });
   const configService = app.get(ConfigService);
 
   const apiPrefix = configService.get<string>('app.apiPrefix') ?? 'api/v1';
@@ -37,5 +38,10 @@ async function bootstrap() {
   SwaggerModule.setup(`${apiPrefix}/docs`, app, swaggerDocument);
 
   await app.listen(port);
+
+  const url = await app.getUrl();
+  const logger = new Logger('Bootstrap');
+  logger.log(`🚀 API sẵn sàng tại ${url}/${apiPrefix}`);
+  logger.log(`📘 Swagger docs tại ${url}/${apiPrefix}/docs`);
 }
 void bootstrap();
