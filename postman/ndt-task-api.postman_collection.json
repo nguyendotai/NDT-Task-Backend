@@ -282,7 +282,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"My Workspace Updated\",\n  \"description\": \"Updated description\"\n}"
+              "raw": "{\n  \"name\": \"My Workspace Updated\",\n  \"description\": \"Updated description\",\n  \"visibility\": \"PUBLIC\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/workspaces/{{workspaceId}}",
@@ -303,6 +303,32 @@
               "path": ["workspaces", "{{workspaceId}}"]
             },
             "description": "Chỉ Owner. Soft delete cascade Workspace/Board/Column/Member/Invitation."
+          },
+          "response": []
+        },
+        {
+          "name": "Restore Workspace",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/restore",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "restore"]
+            },
+            "description": "Khôi phục Workspace đã xóa mềm (cascade Board/Column/Member/Invitation đã bị xóa cùng lúc). Chỉ Owner (kiểm tra qua Workspace.ownerId). 404 nếu Workspace chưa từng bị xóa."
+          },
+          "response": []
+        },
+        {
+          "name": "List Archived Workspaces",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/archived",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "archived"]
+            },
+            "description": "Danh sách Workspace đã xóa mềm mà user hiện tại là Owner."
           },
           "response": []
         },

@@ -90,6 +90,11 @@ enum WorkspaceType {
   SCRUM
 }
 
+enum WorkspaceVisibility {
+  PUBLIC
+  PRIVATE
+}
+
 enum WorkspaceRole {
   OWNER
   ADMIN
@@ -115,6 +120,9 @@ model Workspace {
   // tạo Workspace, không phải ảnh upload thật (xem workspace-avatar-presets.ts).
   avatarEmoji String
   avatarColor String
+  // Chỉ lưu trạng thái, CHƯA ảnh hưởng access control thực tế (đổi Permission
+  // là phạm vi lớn hơn, cần xác nhận riêng).
+  visibility  WorkspaceVisibility @default(PRIVATE)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   deletedAt   DateTime?

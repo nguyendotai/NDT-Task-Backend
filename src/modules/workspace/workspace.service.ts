@@ -202,7 +202,11 @@ export class WorkspaceService {
 
     const updated = await this.workspaceRepository.updateWorkspace(
       workspaceId,
-      { name: dto.name, description: dto.description },
+      {
+        name: dto.name,
+        description: dto.description,
+        visibility: dto.visibility,
+      },
     );
 
     await this.activityLogService.record({
@@ -229,6 +233,38 @@ export class WorkspaceService {
       entityId: workspaceId,
       action: 'workspace.deleted',
     });
+  }
+
+  async listArchived(userId: string): Promise<WorkspaceEntity[]> {
+    const workspaces =
+      await this.workspaceRepository.listArchivedForOwner(userId);
+    return workspaces.map((workspace) => this.toWorkspaceEntity(workspace));
+  }
+
+  async restore(workspaceId: string, userId: string): Promise<WorkspaceEntity> {
+    const workspace =
+      await this.workspaceRepository.findDeletedById(workspaceId);
+    if (!workspace) {
+      throw new NotFoundException('Không tìm thấy Workspace đã xóa');
+    }
+    // Workspace đã bị cascade xóa nên Member row cũng bị xóa mềm theo — không
+    // thể dùng assertRole (yêu cầu Member Active). Chỉ Owner (field trực tiếp
+    // trên Workspace) mới được khôi phục, đối xứng với remove() ở trên.
+    if (workspace.ownerId !== userId) {
+      throw new ForbiddenException('Chỉ Owner được khôi phục Workspace');
+    }
+
+    const restored = await this.workspaceRepository.restoreCascade(workspaceId);
+
+    await this.activityLogService.record({
+      workspaceId,
+      actorId: userId,
+      entityType: 'Workspace',
+      entityId: workspaceId,
+      action: 'workspace.restored',
+    });
+
+    return this.toWorkspaceEntity(restored);
   }
 
   async transferOwner(
@@ -693,6 +729,7 @@ export class WorkspaceService {
       shortCode: workspace.shortCode,
       avatarEmoji: workspace.avatarEmoji,
       avatarColor: workspace.avatarColor,
+      visibility: workspace.visibility,
       createdAt: workspace.createdAt,
       updatedAt: workspace.updatedAt,
     };

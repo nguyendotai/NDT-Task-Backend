@@ -1,6 +1,11 @@
 import { randomInt } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { InvitationStatus, WorkspaceRole, WorkspaceType } from '@prisma/client';
+import {
+  InvitationStatus,
+  WorkspaceRole,
+  WorkspaceType,
+  WorkspaceVisibility,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
 const DEFAULT_BOARD_NAME = 'Main Board';
@@ -95,6 +100,19 @@ export class WorkspaceRepository {
     return this.prisma.workspace.findFirst({ where: { id, deletedAt: null } });
   }
 
+  findDeletedById(id: string) {
+    return this.prisma.workspace.findFirst({
+      where: { id, NOT: { deletedAt: null } },
+    });
+  }
+
+  listArchivedForOwner(ownerId: string) {
+    return this.prisma.workspace.findMany({
+      where: { ownerId, NOT: { deletedAt: null } },
+      orderBy: { deletedAt: 'desc' },
+    });
+  }
+
   countActiveMembers(workspaceId: string) {
     return this.prisma.workspaceMember.count({
       where: { workspaceId, deletedAt: null },
@@ -180,7 +198,14 @@ export class WorkspaceRepository {
     });
   }
 
-  updateWorkspace(id: string, data: { name?: string; description?: string }) {
+  updateWorkspace(
+    id: string,
+    data: {
+      name?: string;
+      description?: string;
+      visibility?: WorkspaceVisibility;
+    },
+  ) {
     return this.prisma.workspace.update({ where: { id }, data });
   }
 
@@ -216,6 +241,42 @@ export class WorkspaceRepository {
           ]
         : []),
     ]);
+  }
+
+  /** Đối xứng với softDeleteCascade — khôi phục đúng các entity đã bị cascade xóa. */
+  async restoreCascade(workspaceId: string) {
+    const board = await this.prisma.board.findFirst({
+      where: { workspaceId },
+    });
+
+    const [workspace] = await this.prisma.$transaction([
+      this.prisma.workspace.update({
+        where: { id: workspaceId },
+        data: { deletedAt: null, deletedBy: null },
+      }),
+      this.prisma.workspaceMember.updateMany({
+        where: { workspaceId, NOT: { deletedAt: null } },
+        data: { deletedAt: null, deletedBy: null },
+      }),
+      this.prisma.workspaceInvitation.updateMany({
+        where: { workspaceId, NOT: { deletedAt: null } },
+        data: { deletedAt: null, deletedBy: null },
+      }),
+      ...(board
+        ? [
+            this.prisma.board.update({
+              where: { id: board.id },
+              data: { deletedAt: null, deletedBy: null },
+            }),
+            this.prisma.column.updateMany({
+              where: { boardId: board.id, NOT: { deletedAt: null } },
+              data: { deletedAt: null, deletedBy: null },
+            }),
+          ]
+        : []),
+    ]);
+
+    return workspace;
   }
 
   // ---------------------------------------------------------------------
