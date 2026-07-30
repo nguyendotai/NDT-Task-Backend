@@ -12,6 +12,8 @@ import { BoardModule } from './modules/board/board.module';
 import { ColumnModule } from './modules/column/column.module';
 import { TaskModule } from './modules/task/task.module';
 import { SprintModule } from './modules/sprint/sprint.module';
+import { CommentModule } from './modules/comment/comment.module';
+import { AttachmentModule } from './modules/attachment/attachment.module';
 import { PrismaModule } from './database/prisma.module';
 import { RedisModule } from './config/redis.module';
 import { MailModule } from './config/mail.module';
@@ -70,6 +72,8 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
     ColumnModule,
     TaskModule,
     SprintModule,
+    CommentModule,
+    AttachmentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

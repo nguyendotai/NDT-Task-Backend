@@ -45,6 +45,11 @@ export class TaskController {
     return this.taskService.getDetail(user.id, id);
   }
 
+  @Get(':id/activity')
+  listActivity(@CurrentUser() user: UserEntity, @Param('id') id: string) {
+    return this.taskService.listActivity(user.id, id);
+  }
+
   @Patch(':id')
   update(
     @CurrentUser() user: UserEntity,

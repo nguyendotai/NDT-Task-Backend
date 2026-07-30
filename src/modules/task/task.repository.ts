@@ -42,12 +42,15 @@ export class TaskRepository {
     dueDate?: Date;
     order: number;
     createdBy: string;
+    storyPoints?: number;
+    labels?: string[];
   }) {
     // Ghi tường minh sprintId/backlogOrder/assigneeId/deletedAt/deletedBy = null:
     // Prisma+MongoDB không match filter nếu field hoàn toàn không tồn tại.
     return this.prisma.task.create({
       data: {
         ...data,
+        labels: data.labels ?? [],
         sprintId: null,
         backlogOrder: null,
         assigneeId: null,
@@ -84,6 +87,8 @@ export class TaskRepository {
       columnId?: string;
       order?: number;
       assigneeId?: string;
+      storyPoints?: number | null;
+      labels?: string[];
     },
   ) {
     return this.prisma.task.update({

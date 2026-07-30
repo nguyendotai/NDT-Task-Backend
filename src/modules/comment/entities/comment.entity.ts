@@ -3,6 +3,7 @@ export class CommentEntity {
   taskId: string;
   authorId: string;
   content: string;
+  mentions: string[];
   createdAt: Date;
   updatedAt: Date;
 }
