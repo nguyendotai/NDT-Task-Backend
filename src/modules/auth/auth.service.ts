@@ -17,6 +17,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { UserEntity } from '../user/entities/user.entity';
 
 const BCRYPT_SALT_ROUNDS = 10;
@@ -165,6 +166,32 @@ export class AuthService {
     );
     await this.authRepository.markPasswordResetTokenUsed(resetToken.id);
     await this.authRepository.revokeAllRefreshTokensForUser(resetToken.userId);
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.authRepository.findUserById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Không tìm thấy tài khoản');
+    }
+
+    const isCurrentValid = await compare(
+      dto.currentPassword,
+      user.passwordHash,
+    );
+    if (!isCurrentValid) {
+      throw new UnauthorizedException('Mật khẩu hiện tại không đúng');
+    }
+
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException('Mật khẩu mới phải khác mật khẩu hiện tại');
+    }
+
+    const passwordHash = await hash(dto.newPassword, BCRYPT_SALT_ROUNDS);
+    await this.authRepository.updateUserPassword(userId, passwordHash);
+    // Đổi mật khẩu xong thu hồi mọi refresh token (đối xứng resetPassword) —
+    // access token hiện tại vẫn dùng được tới khi hết hạn, nhưng không refresh
+    // được nữa nên phải đăng nhập lại bằng mật khẩu mới ở lần sau.
+    await this.authRepository.revokeAllRefreshTokensForUser(userId);
   }
 
   private async issueTokens(

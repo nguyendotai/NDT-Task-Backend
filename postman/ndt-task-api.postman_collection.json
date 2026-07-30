@@ -18,6 +18,7 @@
     { "key": "invitationToken", "value": "", "type": "string" },
     { "key": "newOwnerId", "value": "", "type": "string" },
     { "key": "columnId", "value": "", "type": "string" },
+    { "key": "newColumnId", "value": "", "type": "string" },
     { "key": "taskId", "value": "", "type": "string" },
     { "key": "resetToken", "value": "", "type": "string" }
   ],
@@ -154,6 +155,24 @@
               "path": ["auth", "reset-password"]
             },
             "description": "Đặt lại mật khẩu bằng token nhận từ Forgot Password. Thành công sẽ revoke toàn bộ refresh token hiện có của user."
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"Password123\",\n  \"newPassword\": \"newPassword456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/change-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "change-password"]
+            },
+            "description": "Đổi mật khẩu khi đang đăng nhập. 401 nếu currentPassword sai. Thành công sẽ revoke toàn bộ refresh token hiện có của user (giống Reset Password)."
           },
           "response": []
         }
@@ -547,7 +566,93 @@
               "host": ["{{baseUrl}}"],
               "path": ["workspaces", "{{workspaceId}}", "board"]
             },
-            "description": "Lấy Board + danh sách Column (mặc định To Do/In Progress/Done) của Workspace. Tự động lưu columnId (Column đầu tiên) vào biến collection. Không có API tạo/sửa/xóa Board/Column thủ công (đúng board.md)."
+            "description": "Lấy Board + danh sách Column (mặc định To Do/In Progress/Done) của Workspace. Tự động lưu columnId (Column đầu tiên) vào biến collection. Không có API tạo/sửa/xóa Board thủ công (đúng board.md) — CRUD Column xem folder Column."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Column",
+      "item": [
+        {
+          "name": "Create Column",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('newColumnId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Review\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/columns",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "columns"]
+            },
+            "description": "Chỉ Owner/Admin. Column mới luôn thêm vào cuối Board. 409 nếu trùng tên Column khác còn active trong Board. Tự động lưu newColumnId."
+          },
+          "response": []
+        },
+        {
+          "name": "Rename Column",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Review Renamed\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/columns/{{newColumnId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["columns", "{{newColumnId}}"]
+            },
+            "description": "Chỉ Owner/Admin. Chỉ đổi tên — đổi vị trí dùng request Reorder Columns."
+          },
+          "response": []
+        },
+        {
+          "name": "Reorder Columns",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderedColumnIds\": [\"{{newColumnId}}\", \"{{columnId}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/columns/reorder",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "columns", "reorder"]
+            },
+            "description": "Chỉ Owner/Admin. orderedColumnIds phải là TOÀN BỘ id Column active của Board (không thiếu/thừa) — ví dụ mẫu chỉ minh hoạ 2 Column, thực tế cần liệt kê đủ (dùng GET Board By Workspace để lấy danh sách đầy đủ trước). 400 nếu danh sách không khớp."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Column",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/columns/{{newColumnId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["columns", "{{newColumnId}}"]
+            },
+            "description": "Chỉ Owner/Admin. 400 nếu Board chỉ còn 1 Column hoặc Column còn Task active (chuyển hết Task sang Column khác trước)."
           },
           "response": []
         }
@@ -647,7 +752,25 @@
               "host": ["{{baseUrl}}"],
               "path": ["tasks", "{{taskId}}"]
             },
-            "description": "Owner/Admin sửa được mọi Task; Member chỉ sửa được Task do mình tạo hoặc được giao (403 nếu không). Có thể thêm assigneeId (userId của 1 Member trong Workspace) để gán Task."
+            "description": "Owner/Admin sửa được mọi Task; Member chỉ sửa được Task do mình tạo hoặc được giao (403 nếu không). Có thể thêm assigneeId (userId của 1 Member trong Workspace) để gán Task. Thêm order (số nguyên, index bắt đầu từ 0) để đổi vị trí chính xác trong Column — xem request 'Reorder Task' bên dưới."
+          },
+          "response": []
+        },
+        {
+          "name": "Reorder Task",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"columnId\": \"{{columnId}}\",\n  \"order\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}"]
+            },
+            "description": "Ví dụ đổi thứ tự Task: gửi columnId (Column đích, có thể giữ nguyên Column hiện tại) kèm order (vị trí index mong muốn, bắt đầu từ 0). order vượt quá số Task hiện có sẽ tự kẹp về cuối. task.md #10."
           },
           "response": []
         },

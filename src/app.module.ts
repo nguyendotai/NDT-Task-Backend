@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
 import { WorkspaceModule } from './modules/workspace/workspace.module';
 import { BoardModule } from './modules/board/board.module';
+import { ColumnModule } from './modules/column/column.module';
 import { TaskModule } from './modules/task/task.module';
 import { PrismaModule } from './database/prisma.module';
 import { RedisModule } from './config/redis.module';
@@ -65,6 +66,7 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
     UserModule,
     WorkspaceModule,
     BoardModule,
+    ColumnModule,
     TaskModule,
   ],
   controllers: [AppController],
