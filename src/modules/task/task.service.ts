@@ -19,23 +19,6 @@ const NOT_DONE_STATUSES: TaskStatus[] = [
   TaskStatus.IN_PROGRESS,
 ];
 
-// task.md #4: "Status thực tế phụ thuộc vào Column hiện tại" — Column dùng
-// làm Workflow nên tên Column mặc định ("To Do"/"In Progress"/"Done") ánh xạ
-// thẳng sang TaskStatus. Column CRUD (đổi tên tuỳ ý) chưa tồn tại nên đây là
-// map hợp lệ cho mọi Column hiện có; tên không khớp thì bỏ qua (giữ nguyên
-// status cũ) thay vì suy đoán/ép status không hợp lệ.
-const COLUMN_NAME_TO_STATUS: Record<string, TaskStatus> = {
-  'to do': TaskStatus.TODO,
-  'in progress': TaskStatus.IN_PROGRESS,
-  done: TaskStatus.DONE,
-};
-
-function deriveStatusFromColumnName(
-  columnName: string,
-): TaskStatus | undefined {
-  return COLUMN_NAME_TO_STATUS[columnName.trim().toLowerCase()];
-}
-
 type TaskRecord = NonNullable<
   Awaited<ReturnType<TaskRepository['findActiveById']>>
 >;
@@ -74,7 +57,7 @@ export class TaskService {
       title: dto.title,
       description: dto.description,
       priority: dto.priority,
-      status: deriveStatusFromColumnName(column.name),
+      status: column.mappedStatus ?? undefined,
       startDate: dto.startDate ? new Date(dto.startDate) : undefined,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       order,
@@ -177,8 +160,10 @@ export class TaskService {
         );
       }
       if (isMovingColumn) {
-        // task.md #4: đổi Column phải đồng bộ lại Status theo Workflow.
-        derivedStatus = deriveStatusFromColumnName(destinationColumn.name);
+        // task.md #4: đổi Column phải đồng bộ lại Status theo Workflow —
+        // Column tự khai báo mappedStatus (null = Column này không tự động
+        // đổi Status, ví dụ Column tuỳ ý người dùng tự tạo mà chưa gán).
+        derivedStatus = destinationColumn.mappedStatus ?? undefined;
       }
 
       const destinationCount =

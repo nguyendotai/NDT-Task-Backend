@@ -1,4 +1,11 @@
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import { TaskStatus } from '@prisma/client';
 
 // Không nhận order từ client: Column mới luôn được thêm vào cuối Board, đổi
 // vị trí phải qua PATCH /workspaces/:workspaceId/columns/reorder (dịch order
@@ -8,4 +15,10 @@ export class CreateColumnDto {
   @IsNotEmpty()
   @MaxLength(100)
   name: string;
+
+  // task.md #4: Column tự khai báo Status đại diện (bỏ trống = Column này
+  // không tự động đổi Status của Task khi chuyển vào).
+  @IsOptional()
+  @IsEnum(TaskStatus)
+  mappedStatus?: TaskStatus;
 }

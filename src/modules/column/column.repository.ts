@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { TaskStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
@@ -42,14 +43,30 @@ export class ColumnRepository {
     });
   }
 
-  create(data: { boardId: string; name: string; order: number }) {
+  create(data: {
+    boardId: string;
+    name: string;
+    order: number;
+    mappedStatus?: TaskStatus | null;
+  }) {
+    // Ghi tường minh mappedStatus/deletedAt/deletedBy = null khi không có giá
+    // trị: Prisma+MongoDB không match filter `where: { mappedStatus: null }`
+    // nếu field hoàn toàn không tồn tại trong document.
     return this.prisma.column.create({
-      data: { ...data, deletedAt: null, deletedBy: null },
+      data: {
+        ...data,
+        mappedStatus: data.mappedStatus ?? null,
+        deletedAt: null,
+        deletedBy: null,
+      },
     });
   }
 
-  updateName(id: string, name: string) {
-    return this.prisma.column.update({ where: { id }, data: { name } });
+  update(
+    id: string,
+    data: { name?: string; mappedStatus?: TaskStatus | null },
+  ) {
+    return this.prisma.column.update({ where: { id }, data });
   }
 
   softDelete(id: string, deletedBy: string) {
