@@ -596,14 +596,14 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Review\"\n}"
+              "raw": "{\n  \"name\": \"Review\",\n  \"mappedStatus\": \"IN_PROGRESS\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/columns",
               "host": ["{{baseUrl}}"],
               "path": ["workspaces", "{{workspaceId}}", "columns"]
             },
-            "description": "Chỉ Owner/Admin. Column mới luôn thêm vào cuối Board. 409 nếu trùng tên Column khác còn active trong Board. Tự động lưu newColumnId."
+            "description": "Chỉ Owner/Admin. Column mới luôn thêm vào cuối Board. 409 nếu trùng tên Column khác còn active trong Board. mappedStatus optional (TODO/IN_PROGRESS/DONE) — bỏ trống nếu Column này không tự động đổi status của Task. Tự động lưu newColumnId."
           },
           "response": []
         },
@@ -614,14 +614,14 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Review Renamed\"\n}"
+              "raw": "{\n  \"name\": \"Review Renamed\",\n  \"mappedStatus\": \"IN_PROGRESS\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/columns/{{newColumnId}}",
               "host": ["{{baseUrl}}"],
               "path": ["columns", "{{newColumnId}}"]
             },
-            "description": "Chỉ Owner/Admin. Chỉ đổi tên — đổi vị trí dùng request Reorder Columns."
+            "description": "Chỉ Owner/Admin. Đổi tên và/hoặc mappedStatus (cả 2 field optional) — gửi mappedStatus: null để bỏ mapping status. Đổi vị trí dùng request Reorder Columns."
           },
           "response": []
         },

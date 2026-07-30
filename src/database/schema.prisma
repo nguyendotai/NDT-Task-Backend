@@ -210,6 +210,10 @@ model Column {
   boardId   String
   name      String
   order     Int
+  // task.md #4: Column CRUD cho phép tên tuỳ ý nên không thể suy Status của
+  // Task theo tên Column nữa — mỗi Column tự khai báo status đại diện (null =
+  // Column này không tự động đổi status của Task khi chuyển vào).
+  mappedStatus TaskStatus?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?

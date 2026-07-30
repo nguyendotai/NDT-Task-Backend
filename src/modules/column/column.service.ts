@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { WorkspaceRole } from '@prisma/client';
+import { TaskStatus, WorkspaceRole } from '@prisma/client';
 import { ColumnRepository } from './column.repository';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { ActivityLogService } from '../activity/activity-log.service';
@@ -23,6 +23,7 @@ type ColumnRecord = {
   boardId: string;
   name: string;
   order: number;
+  mappedStatus: TaskStatus | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -58,6 +59,7 @@ export class ColumnService {
       boardId: board.id,
       name: dto.name,
       order,
+      mappedStatus: dto.mappedStatus,
     });
 
     await this.activityLogService.record({
@@ -80,15 +82,20 @@ export class ColumnService {
     const workspaceId = column.board.workspaceId;
     await this.assertManageRole(workspaceId, userId);
 
-    const existing = await this.columnRepository.findActiveByBoardIdAndName(
-      column.boardId,
-      dto.name,
-    );
-    if (existing && existing.id !== columnId) {
-      throw new ConflictException('Tên Column đã tồn tại trong Board này');
+    if (dto.name) {
+      const existing = await this.columnRepository.findActiveByBoardIdAndName(
+        column.boardId,
+        dto.name,
+      );
+      if (existing && existing.id !== columnId) {
+        throw new ConflictException('Tên Column đã tồn tại trong Board này');
+      }
     }
 
-    const updated = await this.columnRepository.updateName(columnId, dto.name);
+    const updated = await this.columnRepository.update(columnId, {
+      name: dto.name,
+      mappedStatus: dto.mappedStatus,
+    });
 
     await this.activityLogService.record({
       workspaceId,
@@ -205,6 +212,7 @@ export class ColumnService {
       boardId: column.boardId,
       name: column.name,
       order: column.order,
+      mappedStatus: column.mappedStatus,
       createdAt: column.createdAt,
       updatedAt: column.updatedAt,
     };
