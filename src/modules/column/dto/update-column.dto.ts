@@ -1,13 +1,12 @@
 import {
-  IsEnum,
+  IsBoolean,
   IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
 } from 'class-validator';
-import { TaskStatus } from '@prisma/client';
 
-// Đổi tên và/hoặc Status đại diện của Column qua endpoint này — đổi vị trí
+// Đổi tên và/hoặc isDoneColumn của Column qua endpoint này — đổi vị trí
 // phải qua endpoint reorder riêng (xem create-column.dto.ts).
 export class UpdateColumnDto {
   @IsOptional()
@@ -17,6 +16,6 @@ export class UpdateColumnDto {
   name?: string;
 
   @IsOptional()
-  @IsEnum(TaskStatus)
-  mappedStatus?: TaskStatus | null;
+  @IsBoolean()
+  isDoneColumn?: boolean;
 }

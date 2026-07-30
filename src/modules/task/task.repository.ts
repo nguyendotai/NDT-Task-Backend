@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, TaskPriority, TaskStatus } from '@prisma/client';
+import { Prisma, TaskPriority } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
 // Dùng chung cho mọi query trả Task ra ngoài — nhúng sẵn workspaceId/name qua
@@ -37,7 +37,7 @@ export class TaskRepository {
     title: string;
     description?: string;
     priority?: TaskPriority;
-    status?: TaskStatus;
+    status: string;
     startDate?: Date;
     dueDate?: Date;
     order: number;
@@ -78,7 +78,7 @@ export class TaskRepository {
       title?: string;
       description?: string;
       priority?: TaskPriority;
-      status?: TaskStatus;
+      status?: string;
       startDate?: Date | null;
       dueDate?: Date;
       columnId?: string;
@@ -186,14 +186,29 @@ export class TaskRepository {
     });
   }
 
-  async listByWorkspace(workspaceId: string, status?: TaskStatus[]) {
+  // done=true/false lọc theo Column.isDoneColumn (task.md #4: Status không
+  // còn là enum cố định nên "đã xong/chưa xong" phải tra qua Column hiện tại
+  // thay vì so khớp giá trị status trực tiếp).
+  // sprintId: dùng cho Scrum Board (board.md #4) — "backlog" = Task chưa vào
+  // Sprint nào (sprintId null), 1 id cụ thể = Task thuộc đúng Sprint đó. Bỏ
+  // trống = không lọc theo Sprint (giữ nguyên hành vi cũ cho List/Timeline/
+  // Calendar — các view này vẫn cần thấy toàn bộ Task bất kể Sprint).
+  async listByWorkspace(
+    workspaceId: string,
+    filters: { done?: boolean; sprintId?: string } = {},
+  ) {
+    const { done, sprintId } = filters;
     const board = await this.prisma.board.findFirst({
       where: { workspaceId, deletedAt: null },
     });
     if (!board) return [];
 
     const columns = await this.prisma.column.findMany({
-      where: { boardId: board.id, deletedAt: null },
+      where: {
+        boardId: board.id,
+        deletedAt: null,
+        ...(done !== undefined ? { isDoneColumn: done } : {}),
+      },
       select: { id: true },
     });
     const columnIds = columns.map((column) => column.id);
@@ -203,7 +218,11 @@ export class TaskRepository {
       where: {
         columnId: { in: columnIds },
         deletedAt: null,
-        ...(status ? { status: { in: status } } : {}),
+        ...(sprintId === 'backlog'
+          ? { sprintId: null }
+          : sprintId !== undefined
+            ? { sprintId }
+            : {}),
       },
       include: WORKSPACE_CONTEXT_INCLUDE,
       orderBy: [{ columnId: 'asc' }, { order: 'asc' }],
@@ -236,19 +255,19 @@ export class TaskRepository {
   listMine(
     userId: string,
     options: {
-      status?: TaskStatus[];
+      done?: boolean;
       taskIds?: string[];
       scope?: 'assignee' | 'assignee-or-creator';
     } = {},
   ) {
-    const { status, taskIds, scope = 'assignee' } = options;
+    const { done, taskIds, scope = 'assignee' } = options;
     return this.prisma.task.findMany({
       where: {
         ...(scope === 'assignee-or-creator'
           ? { OR: [{ assigneeId: userId }, { createdBy: userId }] }
           : { assigneeId: userId }),
         deletedAt: null,
-        ...(status ? { status: { in: status } } : {}),
+        ...(done !== undefined ? { column: { isDoneColumn: done } } : {}),
         ...(taskIds ? { id: { in: taskIds } } : {}),
       },
       include: WORKSPACE_CONTEXT_INCLUDE,

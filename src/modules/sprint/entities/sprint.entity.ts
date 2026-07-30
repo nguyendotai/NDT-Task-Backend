@@ -6,8 +6,9 @@ export class SprintEntity {
   name: string;
   goal?: string | null;
   status: SprintStatus;
-  startDate?: Date | null;
-  endDate?: Date | null;
+  startDate: Date;
+  endDate: Date;
+  completedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

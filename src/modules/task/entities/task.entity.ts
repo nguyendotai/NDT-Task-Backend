@@ -1,4 +1,4 @@
-import { TaskPriority, TaskStatus } from '@prisma/client';
+import { TaskPriority } from '@prisma/client';
 
 export class TaskEntity {
   id: string;
@@ -9,7 +9,8 @@ export class TaskEntity {
   title: string;
   description?: string | null;
   priority: TaskPriority;
-  status: TaskStatus;
+  // task.md #4: mirror tên Column hiện tại — không còn enum cố định.
+  status: string;
   order: number;
   backlogOrder?: number | null;
   startDate?: Date | null;

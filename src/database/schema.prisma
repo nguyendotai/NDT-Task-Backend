@@ -210,10 +210,11 @@ model Column {
   boardId   String
   name      String
   order     Int
-  // task.md #4: Column CRUD cho phép tên tuỳ ý nên không thể suy Status của
-  // Task theo tên Column nữa — mỗi Column tự khai báo status đại diện (null =
-  // Column này không tự động đổi status của Task khi chuyển vào).
-  mappedStatus TaskStatus?
+  // task.md #4: mỗi Column tự là 1 trạng thái riêng (Task.status = tên Column
+  // hiện tại) — isDoneColumn chỉ dùng để lọc "done"/"unfinished" (Dashboard,
+  // GET /tasks/me?done=, GET /workspaces/:id/tasks?done=), không giới hạn số
+  // lượng "trạng thái" Column có thể đại diện.
+  isDoneColumn Boolean @default(false)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -242,8 +243,10 @@ model Sprint {
   name        String
   goal        String?
   status      SprintStatus @default(PLANNED)
-  startDate   DateTime?
-  endDate     DateTime?
+  // sprint.md #6: bắt buộc ngay lúc tạo, endDate luôn > startDate.
+  startDate   DateTime
+  endDate     DateTime
+  completedAt DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   deletedAt   DateTime?
@@ -267,12 +270,6 @@ enum TaskPriority {
   HIGH
 }
 
-enum TaskStatus {
-  TODO
-  IN_PROGRESS
-  DONE
-}
-
 model Task {
   id           String       @id @default(uuid()) @map("_id")
   columnId     String
@@ -280,7 +277,11 @@ model Task {
   title        String
   description  String?
   priority     TaskPriority @default(MEDIUM)
-  status       TaskStatus   @default(TODO)
+  // task.md #4: Status không còn là enum cố định — luôn mirror đúng tên
+  // Column hiện tại (mỗi Column tự là 1 "trạng thái" riêng, không giới hạn
+  // 3 giá trị cũ). Luôn được service gán lại mỗi khi đổi Column, không cho
+  // client tự set tuỳ ý qua PATCH /tasks/:id nữa.
+  status       String
   order        Int
   backlogOrder Int?
   startDate    DateTime?
@@ -395,6 +396,8 @@ enum NotificationType {
   COMMENT_ADDED
   MENTION
   WORKSPACE_INVITATION
+  SPRINT_STARTED
+  SPRINT_COMPLETED
 }
 
 model Notification {
