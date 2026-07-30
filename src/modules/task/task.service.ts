@@ -19,6 +19,23 @@ const NOT_DONE_STATUSES: TaskStatus[] = [
   TaskStatus.IN_PROGRESS,
 ];
 
+// task.md #4: "Status thực tế phụ thuộc vào Column hiện tại" — Column dùng
+// làm Workflow nên tên Column mặc định ("To Do"/"In Progress"/"Done") ánh xạ
+// thẳng sang TaskStatus. Column CRUD (đổi tên tuỳ ý) chưa tồn tại nên đây là
+// map hợp lệ cho mọi Column hiện có; tên không khớp thì bỏ qua (giữ nguyên
+// status cũ) thay vì suy đoán/ép status không hợp lệ.
+const COLUMN_NAME_TO_STATUS: Record<string, TaskStatus> = {
+  'to do': TaskStatus.TODO,
+  'in progress': TaskStatus.IN_PROGRESS,
+  done: TaskStatus.DONE,
+};
+
+function deriveStatusFromColumnName(
+  columnName: string,
+): TaskStatus | undefined {
+  return COLUMN_NAME_TO_STATUS[columnName.trim().toLowerCase()];
+}
+
 type TaskRecord = NonNullable<
   Awaited<ReturnType<TaskRepository['findActiveById']>>
 >;
@@ -57,6 +74,7 @@ export class TaskService {
       title: dto.title,
       description: dto.description,
       priority: dto.priority,
+      status: deriveStatusFromColumnName(column.name),
       startDate: dto.startDate ? new Date(dto.startDate) : undefined,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       order,
@@ -141,6 +159,7 @@ export class TaskService {
 
     let targetColumnId: string | undefined;
     let order: number | undefined;
+    let derivedStatus: TaskStatus | undefined;
     if (dto.columnId && dto.columnId !== task.columnId) {
       const targetColumn = await this.getActiveColumnOrThrow(dto.columnId);
       if (targetColumn.board.workspaceId !== workspaceId) {
@@ -150,6 +169,8 @@ export class TaskService {
       }
       targetColumnId = dto.columnId;
       order = await this.taskRepository.countActiveTasksInColumn(dto.columnId);
+      // task.md #4: đổi Column phải đồng bộ lại Status theo Workflow.
+      derivedStatus = deriveStatusFromColumnName(targetColumn.name);
     }
 
     if (dto.assigneeId && dto.assigneeId !== task.assigneeId) {
@@ -189,7 +210,7 @@ export class TaskService {
       title: dto.title,
       description: dto.description,
       priority: dto.priority,
-      status: dto.status,
+      status: derivedStatus ?? dto.status,
       startDate: dto.startDate ? new Date(dto.startDate) : undefined,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       columnId: targetColumnId,
