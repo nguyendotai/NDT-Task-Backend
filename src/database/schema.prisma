@@ -243,8 +243,10 @@ model Sprint {
   name        String
   goal        String?
   status      SprintStatus @default(PLANNED)
-  startDate   DateTime?
-  endDate     DateTime?
+  // sprint.md #6: bắt buộc ngay lúc tạo, endDate luôn > startDate.
+  startDate   DateTime
+  endDate     DateTime
+  completedAt DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   deletedAt   DateTime?
@@ -394,6 +396,8 @@ enum NotificationType {
   COMMENT_ADDED
   MENTION
   WORKSPACE_INVITATION
+  SPRINT_STARTED
+  SPRINT_COMPLETED
 }
 
 model Notification {

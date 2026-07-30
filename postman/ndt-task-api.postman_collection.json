@@ -20,7 +20,8 @@
     { "key": "columnId", "value": "", "type": "string" },
     { "key": "newColumnId", "value": "", "type": "string" },
     { "key": "taskId", "value": "", "type": "string" },
-    { "key": "resetToken", "value": "", "type": "string" }
+    { "key": "resetToken", "value": "", "type": "string" },
+    { "key": "sprintId", "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -716,12 +717,15 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/tasks?done=false",
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/tasks?done=false&sprintId={{sprintId}}",
               "host": ["{{baseUrl}}"],
               "path": ["workspaces", "{{workspaceId}}", "tasks"],
-              "query": [{ "key": "done", "value": "false", "disabled": true }]
+              "query": [
+                { "key": "done", "value": "false", "disabled": true },
+                { "key": "sprintId", "value": "{{sprintId}}", "disabled": true }
+              ]
             },
-            "description": "Toàn bộ Task của 1 Workspace (dùng cho màn hình Board). Bật query done=true/false để lọc."
+            "description": "Toàn bộ Task của 1 Workspace (dùng cho màn hình Board). Bật query done=true/false để lọc. Workspace Scrum: bật sprintId=<id Sprint> để chỉ xem Task của 1 Sprint, hoặc sprintId=backlog để chỉ xem Task chưa vào Sprint nào (Product Backlog)."
           },
           "response": []
         },
@@ -745,14 +749,14 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Sample Task (updated)\",\n  \"status\": \"IN_PROGRESS\"\n}"
+              "raw": "{\n  \"title\": \"Sample Task (updated)\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/tasks/{{taskId}}",
               "host": ["{{baseUrl}}"],
               "path": ["tasks", "{{taskId}}"]
             },
-            "description": "Owner/Admin sửa được mọi Task; Member chỉ sửa được Task do mình tạo hoặc được giao (403 nếu không). Có thể thêm assigneeId (userId của 1 Member trong Workspace) để gán Task. Thêm order (số nguyên, index bắt đầu từ 0) để đổi vị trí chính xác trong Column — xem request 'Reorder Task' bên dưới."
+            "description": "Owner/Admin sửa được mọi Task; Member chỉ sửa được Task do mình tạo hoặc được giao (403 nếu không). Có thể thêm assigneeId (userId của 1 Member trong Workspace) để gán Task. Thêm order (số nguyên, index bắt đầu từ 0) để đổi vị trí chính xác trong Column — xem request 'Reorder Task' bên dưới. Không nhận status trực tiếp — status luôn tự mirror tên Column hiện tại."
           },
           "response": []
         },
@@ -836,6 +840,144 @@
               "path": ["tasks", "{{taskId}}", "restore"]
             },
             "description": "Khôi phục Task đã xóa mềm. Chỉ Owner/Admin (403 với Member). 404 nếu Task chưa từng bị xóa."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Sprint",
+      "item": [
+        {
+          "name": "Create Sprint",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('sprintId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sprint 1\",\n  \"goal\": \"Hoàn thành module Sprint\",\n  \"startDate\": \"2026-08-01T00:00:00.000Z\",\n  \"endDate\": \"2026-08-14T00:00:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/sprints",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "sprints"]
+            },
+            "description": "Chỉ áp dụng cho Workspace loại Scrum (400 nếu Kanban). Chỉ Owner/Admin. endDate phải sau startDate. Tự động lưu sprintId."
+          },
+          "response": []
+        },
+        {
+          "name": "List Sprints By Workspace",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/sprints",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "sprints"]
+            },
+            "description": "Danh sách Sprint của Workspace, sắp theo createdAt giảm dần. Mọi Member Active đều xem được."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sprint By Id",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/sprints/{{sprintId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["sprints", "{{sprintId}}"]
+            },
+            "description": "Chi tiết Sprint. Mọi Member Active của Workspace chứa Sprint đều xem được."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Sprint",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sprint 1 (updated)\",\n  \"goal\": \"Goal mới\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sprints/{{sprintId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["sprints", "{{sprintId}}"]
+            },
+            "description": "Chỉ Owner/Admin, chỉ khi Sprint đang Planned (400 nếu Active/Completed). Không đổi status qua đây — dùng Start/Complete Sprint bên dưới."
+          },
+          "response": []
+        },
+        {
+          "name": "Start Sprint",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/sprints/{{sprintId}}/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["sprints", "{{sprintId}}", "start"]
+            },
+            "description": "Chỉ Owner/Admin. 400 nếu Sprint không ở trạng thái Planned, hoặc Workspace đã có 1 Sprint khác đang Active. Gửi Notification SPRINT_STARTED cho toàn bộ Member."
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Sprint",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/sprints/{{sprintId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["sprints", "{{sprintId}}", "complete"]
+            },
+            "description": "Chỉ Owner/Admin. 400 nếu Sprint không ở trạng thái Active. Task chưa xong (Column chưa isDoneColumn) tự động gỡ khỏi Sprint, quay về Product Backlog. Gửi Notification SPRINT_COMPLETED cho toàn bộ Member."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Task To Sprint",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"taskId\": \"{{taskId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sprints/{{sprintId}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["sprints", "{{sprintId}}", "tasks"]
+            },
+            "description": "Chỉ Owner/Admin, chỉ khi Sprint đang Planned. Task phải thuộc cùng Workspace và chưa thuộc Sprint nào khác (lấy từ Product Backlog)."
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Task From Sprint",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/sprints/{{sprintId}}/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["sprints", "{{sprintId}}", "tasks", "{{taskId}}"]
+            },
+            "description": "Chỉ Owner/Admin, chỉ khi Sprint đang Planned. Task quay về Product Backlog sau khi xóa."
           },
           "response": []
         }

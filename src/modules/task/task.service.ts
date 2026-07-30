@@ -84,12 +84,15 @@ export class TaskService {
   async listByWorkspace(
     userId: string,
     workspaceId: string,
-    done?: boolean,
+    filters: { done?: boolean; sprintId?: string } = {},
   ): Promise<TaskWithStar[]> {
     await this.workspaceService.assertActiveWorkspace(workspaceId);
     await this.workspaceService.assertMembership(workspaceId, userId);
 
-    const tasks = await this.taskRepository.listByWorkspace(workspaceId, done);
+    const tasks = await this.taskRepository.listByWorkspace(
+      workspaceId,
+      filters,
+    );
     return this.attachStarredFlag(userId, tasks);
   }
 

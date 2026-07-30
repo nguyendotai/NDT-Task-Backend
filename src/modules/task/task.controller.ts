@@ -86,11 +86,10 @@ export class WorkspaceTasksController {
     @Param('workspaceId') workspaceId: string,
     @Query() query: ListTasksQueryDto,
   ) {
-    return this.taskService.listByWorkspace(
-      user.id,
-      workspaceId,
-      toBoolean(query.done),
-    );
+    return this.taskService.listByWorkspace(user.id, workspaceId, {
+      done: toBoolean(query.done),
+      sprintId: query.sprintId,
+    });
   }
 
   @Get(':workspaceId/tasks/archived')
