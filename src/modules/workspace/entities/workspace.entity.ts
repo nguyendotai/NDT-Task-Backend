@@ -1,4 +1,4 @@
-import { WorkspaceType } from '@prisma/client';
+import { WorkspaceType, WorkspaceVisibility } from '@prisma/client';
 
 export class WorkspaceEntity {
   id: string;
@@ -9,6 +9,7 @@ export class WorkspaceEntity {
   shortCode: string;
   avatarEmoji: string;
   avatarColor: string;
+  visibility: WorkspaceVisibility;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -56,6 +56,11 @@ export class WorkspaceController {
     return this.workspaceService.rejectInvitation(token, user);
   }
 
+  @Get('archived')
+  listArchived(@CurrentUser() user: UserEntity) {
+    return this.workspaceService.listArchived(user.id);
+  }
+
   @Get(':id')
   getDetail(@CurrentUser() user: UserEntity, @Param('id') id: string) {
     return this.workspaceService.getDetail(id, user.id);
@@ -73,6 +78,11 @@ export class WorkspaceController {
   @Delete(':id')
   remove(@CurrentUser() user: UserEntity, @Param('id') id: string) {
     return this.workspaceService.remove(id, user.id);
+  }
+
+  @Post(':id/restore')
+  restore(@CurrentUser() user: UserEntity, @Param('id') id: string) {
+    return this.workspaceService.restore(id, user.id);
   }
 
   @Post(':id/transfer-owner')
