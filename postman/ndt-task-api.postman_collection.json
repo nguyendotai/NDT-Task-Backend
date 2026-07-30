@@ -21,7 +21,9 @@
     { "key": "newColumnId", "value": "", "type": "string" },
     { "key": "taskId", "value": "", "type": "string" },
     { "key": "resetToken", "value": "", "type": "string" },
-    { "key": "sprintId", "value": "", "type": "string" }
+    { "key": "sprintId", "value": "", "type": "string" },
+    { "key": "commentId", "value": "", "type": "string" },
+    { "key": "attachmentId", "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -683,7 +685,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"columnId\": \"{{columnId}}\",\n  \"title\": \"Sample Task\",\n  \"description\": \"Created from Postman\",\n  \"priority\": \"MEDIUM\",\n  \"startDate\": \"2026-08-01T00:00:00.000Z\",\n  \"dueDate\": \"2026-08-15T00:00:00.000Z\"\n}"
+              "raw": "{\n  \"columnId\": \"{{columnId}}\",\n  \"title\": \"Sample Task\",\n  \"description\": \"Created from Postman\",\n  \"priority\": \"MEDIUM\",\n  \"startDate\": \"2026-08-01T00:00:00.000Z\",\n  \"dueDate\": \"2026-08-15T00:00:00.000Z\",\n  \"storyPoints\": 3,\n  \"labels\": [\"backend\"]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/tasks",
@@ -743,13 +745,26 @@
           "response": []
         },
         {
+          "name": "Get Task Activity",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/activity",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "activity"]
+            },
+            "description": "Lịch sử thay đổi Task (tab History ở modal chi tiết Task) — tái dùng Activity Log sẵn có, sắp theo createdAt giảm dần."
+          },
+          "response": []
+        },
+        {
           "name": "Update Task",
           "request": {
             "method": "PATCH",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Sample Task (updated)\"\n}"
+              "raw": "{\n  \"title\": \"Sample Task (updated)\",\n  \"storyPoints\": 5,\n  \"labels\": [\"backend\", \"urgent\"]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/tasks/{{taskId}}",
@@ -978,6 +993,149 @@
               "path": ["sprints", "{{sprintId}}", "tasks", "{{taskId}}"]
             },
             "description": "Chỉ Owner/Admin, chỉ khi Sprint đang Planned. Task quay về Product Backlog sau khi xóa."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Comment",
+      "item": [
+        {
+          "name": "Create Comment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('commentId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Who is working on this?\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/comments",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "comments"]
+            },
+            "description": "Tạo Comment trong 1 Task. Mọi Member Active của Workspace đều tạo được. Thêm mentions (mảng userId) để @mention Member khác. Tự động lưu commentId."
+          },
+          "response": []
+        },
+        {
+          "name": "List Comments By Task",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/comments",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "comments"]
+            },
+            "description": "Danh sách Comment của Task, sắp theo createdAt tăng dần."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Comment",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Who is working on this? (updated)\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/comments/{{commentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["comments", "{{commentId}}"]
+            },
+            "description": "Chỉ tác giả hoặc Owner/Admin (403 nếu không). Chỉ sửa được content."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Comment",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/comments/{{commentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["comments", "{{commentId}}"]
+            },
+            "description": "Soft delete Comment. Chỉ tác giả hoặc Owner/Admin (403 nếu không)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Attachment",
+      "item": [
+        {
+          "name": "Upload Attachment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('attachmentId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "file", "type": "file", "src": "" }]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/attachments",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "attachments"]
+            },
+            "description": "Upload file đính kèm (multipart/form-data, field file). Tối đa 20MB, chặn định dạng thực thi (.exe/.bat/.cmd/.sh/.msi/.dll). Lưu Cloudinary, resource_type=auto (mọi loại file). Tự động lưu attachmentId."
+          },
+          "response": []
+        },
+        {
+          "name": "List Attachments By Task",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/attachments",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "attachments"]
+            },
+            "description": "Danh sách Attachment của Task, sắp theo createdAt giảm dần."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Attachment",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/attachments/{{attachmentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["attachments", "{{attachmentId}}"]
+            },
+            "description": "Soft delete Attachment (không xóa file khỏi Cloudinary). Chỉ người upload hoặc Owner/Admin (403 nếu không)."
           },
           "response": []
         }

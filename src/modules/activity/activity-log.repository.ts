@@ -16,4 +16,11 @@ export class ActivityLogRepository {
   }) {
     return this.prisma.activityLog.create({ data });
   }
+
+  listByEntity(entityType: string, entityId: string) {
+    return this.prisma.activityLog.findMany({
+      where: { entityType, entityId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }
