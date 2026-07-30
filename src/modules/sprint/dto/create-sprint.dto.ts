@@ -1,18 +1,24 @@
-import { IsDateString, IsOptional, IsString } from 'class-validator';
+import {
+  IsDateString,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateSprintDto {
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
   name: string;
 
   @IsOptional()
   @IsString()
   goal?: string;
 
-  @IsOptional()
   @IsDateString()
-  startDate?: string;
+  startDate: string;
 
-  @IsOptional()
   @IsDateString()
-  endDate?: string;
+  endDate: string;
 }

@@ -189,7 +189,15 @@ export class TaskRepository {
   // done=true/false lọc theo Column.isDoneColumn (task.md #4: Status không
   // còn là enum cố định nên "đã xong/chưa xong" phải tra qua Column hiện tại
   // thay vì so khớp giá trị status trực tiếp).
-  async listByWorkspace(workspaceId: string, done?: boolean) {
+  // sprintId: dùng cho Scrum Board (board.md #4) — "backlog" = Task chưa vào
+  // Sprint nào (sprintId null), 1 id cụ thể = Task thuộc đúng Sprint đó. Bỏ
+  // trống = không lọc theo Sprint (giữ nguyên hành vi cũ cho List/Timeline/
+  // Calendar — các view này vẫn cần thấy toàn bộ Task bất kể Sprint).
+  async listByWorkspace(
+    workspaceId: string,
+    filters: { done?: boolean; sprintId?: string } = {},
+  ) {
+    const { done, sprintId } = filters;
     const board = await this.prisma.board.findFirst({
       where: { workspaceId, deletedAt: null },
     });
@@ -210,6 +218,11 @@ export class TaskRepository {
       where: {
         columnId: { in: columnIds },
         deletedAt: null,
+        ...(sprintId === 'backlog'
+          ? { sprintId: null }
+          : sprintId !== undefined
+            ? { sprintId }
+            : {}),
       },
       include: WORKSPACE_CONTEXT_INCLUDE,
       orderBy: [{ columnId: 'asc' }, { order: 'asc' }],
