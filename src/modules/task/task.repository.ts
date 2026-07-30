@@ -37,6 +37,7 @@ export class TaskRepository {
     title: string;
     description?: string;
     priority?: TaskPriority;
+    status?: TaskStatus;
     startDate?: Date;
     dueDate?: Date;
     order: number;
