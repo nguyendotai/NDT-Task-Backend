@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { NotificationType, TaskStatus, WorkspaceRole } from '@prisma/client';
+import { NotificationType, WorkspaceRole } from '@prisma/client';
 import { TaskRepository } from './task.repository';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { ActivityLogService } from '../activity/activity-log.service';
@@ -12,12 +12,6 @@ import { NotificationService } from '../notification/notification.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { TaskEntity } from './entities/task.entity';
-
-const DONE_STATUSES: TaskStatus[] = [TaskStatus.DONE];
-const NOT_DONE_STATUSES: TaskStatus[] = [
-  TaskStatus.TODO,
-  TaskStatus.IN_PROGRESS,
-];
 
 type TaskRecord = NonNullable<
   Awaited<ReturnType<TaskRepository['findActiveById']>>
@@ -57,7 +51,7 @@ export class TaskService {
       title: dto.title,
       description: dto.description,
       priority: dto.priority,
-      status: column.mappedStatus ?? undefined,
+      status: column.name,
       startDate: dto.startDate ? new Date(dto.startDate) : undefined,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       order,
@@ -95,10 +89,7 @@ export class TaskService {
     await this.workspaceService.assertActiveWorkspace(workspaceId);
     await this.workspaceService.assertMembership(workspaceId, userId);
 
-    const tasks = await this.taskRepository.listByWorkspace(
-      workspaceId,
-      this.toStatusFilter(done),
-    );
+    const tasks = await this.taskRepository.listByWorkspace(workspaceId, done);
     return this.attachStarredFlag(userId, tasks);
   }
 
@@ -118,7 +109,7 @@ export class TaskService {
     }
 
     const tasks = await this.taskRepository.listMine(userId, {
-      status: this.toStatusFilter(filters.done),
+      done: filters.done,
       taskIds,
       scope: filters.scope,
     });
@@ -144,7 +135,7 @@ export class TaskService {
     // xác trong Column đích (không còn luôn "xuống cuối" như trước) — cả 2
     // trường hợp đổi Column và chỉ đổi vị trí trong cùng Column đều đi qua
     // taskRepository.reorder() để dịch chuyển order của các Task liên quan.
-    let derivedStatus: TaskStatus | undefined;
+    let derivedStatus: string | undefined;
     const isMovingColumn =
       dto.columnId !== undefined && dto.columnId !== task.columnId;
     const isReordering = dto.order !== undefined;
@@ -160,10 +151,9 @@ export class TaskService {
         );
       }
       if (isMovingColumn) {
-        // task.md #4: đổi Column phải đồng bộ lại Status theo Workflow —
-        // Column tự khai báo mappedStatus (null = Column này không tự động
-        // đổi Status, ví dụ Column tuỳ ý người dùng tự tạo mà chưa gán).
-        derivedStatus = destinationColumn.mappedStatus ?? undefined;
+        // task.md #4: mỗi Column tự là 1 trạng thái riêng — đổi Column luôn
+        // đồng bộ lại status = tên Column đích.
+        derivedStatus = destinationColumn.name;
       }
 
       const destinationCount =
@@ -222,7 +212,7 @@ export class TaskService {
       title: dto.title,
       description: dto.description,
       priority: dto.priority,
-      status: derivedStatus ?? dto.status,
+      status: derivedStatus,
       startDate: dto.startDate ? new Date(dto.startDate) : undefined,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       assigneeId: dto.assigneeId,
@@ -381,11 +371,6 @@ export class TaskService {
     throw new ForbiddenException(
       'Chỉ Owner/Admin hoặc người tạo/được giao Task mới được thao tác',
     );
-  }
-
-  private toStatusFilter(done?: boolean): TaskStatus[] | undefined {
-    if (done === undefined) return undefined;
-    return done ? DONE_STATUSES : NOT_DONE_STATUSES;
   }
 
   private async attachStarredFlag(

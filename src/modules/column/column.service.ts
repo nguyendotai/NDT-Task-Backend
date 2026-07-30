@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { TaskStatus, WorkspaceRole } from '@prisma/client';
+import { WorkspaceRole } from '@prisma/client';
 import { ColumnRepository } from './column.repository';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { ActivityLogService } from '../activity/activity-log.service';
@@ -23,7 +23,7 @@ type ColumnRecord = {
   boardId: string;
   name: string;
   order: number;
-  mappedStatus: TaskStatus | null;
+  isDoneColumn: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -59,7 +59,7 @@ export class ColumnService {
       boardId: board.id,
       name: dto.name,
       order,
-      mappedStatus: dto.mappedStatus,
+      isDoneColumn: dto.isDoneColumn,
     });
 
     await this.activityLogService.record({
@@ -94,7 +94,7 @@ export class ColumnService {
 
     const updated = await this.columnRepository.update(columnId, {
       name: dto.name,
-      mappedStatus: dto.mappedStatus,
+      isDoneColumn: dto.isDoneColumn,
     });
 
     await this.activityLogService.record({
@@ -212,7 +212,7 @@ export class ColumnService {
       boardId: column.boardId,
       name: column.name,
       order: column.order,
-      mappedStatus: column.mappedStatus,
+      isDoneColumn: column.isDoneColumn,
       createdAt: column.createdAt,
       updatedAt: column.updatedAt,
     };

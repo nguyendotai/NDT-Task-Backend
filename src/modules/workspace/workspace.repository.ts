@@ -2,7 +2,6 @@ import { randomInt } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import {
   InvitationStatus,
-  TaskStatus,
   WorkspaceRole,
   WorkspaceType,
   WorkspaceVisibility,
@@ -10,12 +9,12 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 
 const DEFAULT_BOARD_NAME = 'Main Board';
-// mappedStatus gán sẵn cho 3 Column mặc định — Task tạo/chuyển vào các Column
-// này tự động đồng bộ status tương ứng (task.md #4), không cần đoán theo tên.
-const DEFAULT_COLUMNS: { name: string; mappedStatus: TaskStatus }[] = [
-  { name: 'To Do', mappedStatus: TaskStatus.TODO },
-  { name: 'In Progress', mappedStatus: TaskStatus.IN_PROGRESS },
-  { name: 'Done', mappedStatus: TaskStatus.DONE },
+// task.md #4: mỗi Column tự là 1 trạng thái riêng (Task.status = tên Column) —
+// isDoneColumn chỉ đánh dấu Column mặc định nào được tính là "đã xong".
+const DEFAULT_COLUMNS: { name: string; isDoneColumn: boolean }[] = [
+  { name: 'To Do', isDoneColumn: false },
+  { name: 'In Progress', isDoneColumn: false },
+  { name: 'Done', isDoneColumn: true },
 ];
 
 // Bỏ ký tự dễ nhầm lẫn (0/O, 1/I).
@@ -76,11 +75,11 @@ export class WorkspaceRepository {
       });
 
       await tx.column.createMany({
-        data: DEFAULT_COLUMNS.map(({ name, mappedStatus }, index) => ({
+        data: DEFAULT_COLUMNS.map(({ name, isDoneColumn }, index) => ({
           boardId: board.id,
           name,
           order: index,
-          mappedStatus,
+          isDoneColumn,
           deletedAt: null,
           deletedBy: null,
         })),
