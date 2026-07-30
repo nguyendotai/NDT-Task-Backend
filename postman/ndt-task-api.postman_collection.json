@@ -157,6 +157,24 @@
             "description": "Đặt lại mật khẩu bằng token nhận từ Forgot Password. Thành công sẽ revoke toàn bộ refresh token hiện có của user."
           },
           "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"Password123\",\n  \"newPassword\": \"newPassword456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/change-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "change-password"]
+            },
+            "description": "Đổi mật khẩu khi đang đăng nhập. 401 nếu currentPassword sai. Thành công sẽ revoke toàn bộ refresh token hiện có của user (giống Reset Password)."
+          },
+          "response": []
         }
       ]
     },
