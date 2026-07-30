@@ -1,11 +1,9 @@
-import { TaskStatus } from '@prisma/client';
-
 export class ColumnEntity {
   id: string;
   boardId: string;
   name: string;
   order: number;
-  mappedStatus: TaskStatus | null;
+  isDoneColumn: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

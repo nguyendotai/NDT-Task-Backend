@@ -30,7 +30,7 @@ export class BoardService {
         boardId: column.boardId,
         name: column.name,
         order: column.order,
-        mappedStatus: column.mappedStatus,
+        isDoneColumn: column.isDoneColumn,
       })),
     };
   }

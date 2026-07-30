@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { TaskStatus } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
@@ -47,26 +46,33 @@ export class ColumnRepository {
     boardId: string;
     name: string;
     order: number;
-    mappedStatus?: TaskStatus | null;
+    isDoneColumn?: boolean;
   }) {
-    // Ghi tường minh mappedStatus/deletedAt/deletedBy = null khi không có giá
-    // trị: Prisma+MongoDB không match filter `where: { mappedStatus: null }`
-    // nếu field hoàn toàn không tồn tại trong document.
     return this.prisma.column.create({
       data: {
         ...data,
-        mappedStatus: data.mappedStatus ?? null,
+        isDoneColumn: data.isDoneColumn ?? false,
         deletedAt: null,
         deletedBy: null,
       },
     });
   }
 
-  update(
-    id: string,
-    data: { name?: string; mappedStatus?: TaskStatus | null },
-  ) {
-    return this.prisma.column.update({ where: { id }, data });
+  // task.md #4: Task.status luôn mirror đúng tên Column hiện tại — đổi tên
+  // Column phải đồng bộ lại status của mọi Task đang active trong Column đó
+  // trong cùng 1 transaction.
+  async update(id: string, data: { name?: string; isDoneColumn?: boolean }) {
+    if (data.name === undefined) {
+      return this.prisma.column.update({ where: { id }, data });
+    }
+    const [updated] = await this.prisma.$transaction([
+      this.prisma.column.update({ where: { id }, data }),
+      this.prisma.task.updateMany({
+        where: { columnId: id, deletedAt: null },
+        data: { status: data.name },
+      }),
+    ]);
+    return updated;
   }
 
   softDelete(id: string, deletedBy: string) {

@@ -7,8 +7,10 @@ import {
   IsUUID,
   Min,
 } from 'class-validator';
-import { TaskPriority, TaskStatus } from '@prisma/client';
+import { TaskPriority } from '@prisma/client';
 
+// task.md #4: không còn nhận status từ client — status luôn mirror tên Column
+// hiện tại, chỉ đổi được gián tiếp qua columnId (xem task.service.ts).
 export class UpdateTaskDto {
   @IsOptional()
   @IsString()
@@ -21,10 +23,6 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsEnum(TaskPriority)
   priority?: TaskPriority;
-
-  @IsOptional()
-  @IsEnum(TaskStatus)
-  status?: TaskStatus;
 
   @IsOptional()
   @IsUUID()
