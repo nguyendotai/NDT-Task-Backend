@@ -287,6 +287,12 @@ model Task {
   startDate    DateTime?
   dueDate      DateTime?
   assigneeId   String?
+  // Bổ sung theo yêu cầu (không thuộc field chuẩn task.md #3) — hiển thị ở
+  // modal chi tiết Task. storyPoints: số điểm ước lượng tự do, không ràng
+  // buộc nghiệp vụ. labels: chuỗi tự do, chưa phải Label entity riêng như
+  // gợi ý ở task.md #13 (label.md chưa tồn tại).
+  storyPoints  Int?
+  labels       String[]     @default([])
   createdBy    String
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -336,6 +342,8 @@ model Comment {
   taskId    String
   authorId  String
   content   String
+  // comment.md #3: mentions (optional) — userId của các Member được @mention.
+  mentions  String[]  @default([])
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -398,6 +406,7 @@ enum NotificationType {
   WORKSPACE_INVITATION
   SPRINT_STARTED
   SPRINT_COMPLETED
+  ATTACHMENT_ADDED
 }
 
 model Notification {

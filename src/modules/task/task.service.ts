@@ -56,6 +56,8 @@ export class TaskService {
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       order,
       createdBy: userId,
+      storyPoints: dto.storyPoints,
+      labels: dto.labels,
     });
 
     await this.activityLogService.record({
@@ -79,6 +81,18 @@ export class TaskService {
 
     const star = await this.taskRepository.findStar(taskId, userId);
     return { ...this.toTaskEntity(task), isStarred: !!star };
+  }
+
+  // Tab History ở modal chi tiết Task — tái dùng ActivityLog sẵn có
+  // (activity-log.md), không xây model lịch sử riêng.
+  async listActivity(userId: string, taskId: string) {
+    const task = await this.getActiveTaskOrThrow(taskId);
+    const column = await this.getActiveColumnOrThrow(task.columnId);
+    await this.workspaceService.assertMembership(
+      column.board.workspaceId,
+      userId,
+    );
+    return this.activityLogService.listByEntity('Task', taskId);
   }
 
   async listByWorkspace(
@@ -219,6 +233,8 @@ export class TaskService {
       startDate: dto.startDate ? new Date(dto.startDate) : undefined,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       assigneeId: dto.assigneeId,
+      storyPoints: dto.storyPoints,
+      labels: dto.labels,
     });
 
     await this.activityLogService.record({
@@ -416,6 +432,8 @@ export class TaskService {
       startDate: task.startDate,
       dueDate: task.dueDate,
       assigneeId: task.assigneeId,
+      storyPoints: task.storyPoints,
+      labels: task.labels,
       createdBy: task.createdBy,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,

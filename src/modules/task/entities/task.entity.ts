@@ -16,6 +16,8 @@ export class TaskEntity {
   startDate?: Date | null;
   dueDate?: Date | null;
   assigneeId?: string | null;
+  storyPoints?: number | null;
+  labels: string[];
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
