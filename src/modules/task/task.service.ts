@@ -157,20 +157,47 @@ export class TaskService {
     );
     this.assertCanModify(member.role, task, userId);
 
-    let targetColumnId: string | undefined;
-    let order: number | undefined;
+    // task.md #10 (Move Task): cho phép vừa đổi Column vừa đổi thứ tự chính
+    // xác trong Column đích (không còn luôn "xuống cuối" như trước) — cả 2
+    // trường hợp đổi Column và chỉ đổi vị trí trong cùng Column đều đi qua
+    // taskRepository.reorder() để dịch chuyển order của các Task liên quan.
     let derivedStatus: TaskStatus | undefined;
-    if (dto.columnId && dto.columnId !== task.columnId) {
-      const targetColumn = await this.getActiveColumnOrThrow(dto.columnId);
-      if (targetColumn.board.workspaceId !== workspaceId) {
+    const isMovingColumn =
+      dto.columnId !== undefined && dto.columnId !== task.columnId;
+    const isReordering = dto.order !== undefined;
+
+    if (isMovingColumn || isReordering) {
+      const destinationColumnId = dto.columnId ?? task.columnId;
+      const destinationColumn = isMovingColumn
+        ? await this.getActiveColumnOrThrow(destinationColumnId)
+        : column;
+      if (destinationColumn.board.workspaceId !== workspaceId) {
         throw new BadRequestException(
           'Không thể chuyển Task sang Board/Workspace khác',
         );
       }
-      targetColumnId = dto.columnId;
-      order = await this.taskRepository.countActiveTasksInColumn(dto.columnId);
-      // task.md #4: đổi Column phải đồng bộ lại Status theo Workflow.
-      derivedStatus = deriveStatusFromColumnName(targetColumn.name);
+      if (isMovingColumn) {
+        // task.md #4: đổi Column phải đồng bộ lại Status theo Workflow.
+        derivedStatus = deriveStatusFromColumnName(destinationColumn.name);
+      }
+
+      const destinationCount =
+        await this.taskRepository.countActiveTasksInColumn(destinationColumnId);
+      // Đổi Column: chèn thêm 1 Task nên vị trí hợp lệ tối đa = count hiện có.
+      // Chỉ đổi vị trí trong cùng Column: chính Task đang nằm trong count đó rồi.
+      const maxIndex = isMovingColumn
+        ? destinationCount
+        : Math.max(destinationCount - 1, 0);
+      const requestedOrder = dto.order ?? destinationCount;
+      const targetOrder = Math.min(Math.max(requestedOrder, 0), maxIndex);
+
+      await this.taskRepository.reorder({
+        taskId,
+        sourceColumnId: task.columnId,
+        targetColumnId: destinationColumnId,
+        currentOrder: task.order,
+        targetOrder,
+      });
     }
 
     if (dto.assigneeId && dto.assigneeId !== task.assigneeId) {
@@ -213,8 +240,6 @@ export class TaskService {
       status: derivedStatus ?? dto.status,
       startDate: dto.startDate ? new Date(dto.startDate) : undefined,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
-      columnId: targetColumnId,
-      order,
       assigneeId: dto.assigneeId,
     });
 
@@ -223,7 +248,7 @@ export class TaskService {
       actorId: userId,
       entityType: 'Task',
       entityId: taskId,
-      action: 'task.updated',
+      action: isMovingColumn || isReordering ? 'task.moved' : 'task.updated',
     });
 
     if (dto.assigneeId && dto.assigneeId !== task.assigneeId) {
