@@ -60,6 +60,7 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
           host: configService.get<string>('redis.host'),
           port: configService.get<number>('redis.port'),
           password: configService.get<string>('redis.password'),
+          tls: configService.get<Record<string, never>>('redis.tls'),
         },
       }),
     }),

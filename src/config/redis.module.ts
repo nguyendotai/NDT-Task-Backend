@@ -15,6 +15,7 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
           host: configService.get<string>('redis.host'),
           port: configService.get<number>('redis.port'),
           password: configService.get<string>('redis.password'),
+          tls: configService.get<Record<string, never>>('redis.tls'),
         }),
     },
   ],
