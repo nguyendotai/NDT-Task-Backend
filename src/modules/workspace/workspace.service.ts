@@ -430,7 +430,7 @@ export class WorkspaceService {
       });
     }
 
-    await this.sendInvitationEmail(email, workspace.name, token);
+    await this.sendInvitationEmail(email, workspace.name, actor.name, token);
 
     return this.toInvitationEntity(invitation);
   }
@@ -698,6 +698,7 @@ export class WorkspaceService {
   private async sendInvitationEmail(
     email: string,
     workspaceName: string,
+    inviterName: string,
     token: string,
   ): Promise<void> {
     const frontendUrl = this.configService.get<string>('app.frontendUrl');
@@ -707,8 +708,8 @@ export class WorkspaceService {
       await withTimeout(
         this.mailQueueService.enqueueSend({
           to: email,
-          subject: `Lời mời tham gia Workspace "${workspaceName}" trên NDT Task`,
-          html: `<p>Bạn được mời tham gia Workspace <strong>${workspaceName}</strong> trên NDT Task.</p><p><a href="${inviteLink}">Nhấn vào đây để xem lời mời</a></p>`,
+          subject: `${inviterName} đã mời bạn tham gia Workspace "${workspaceName}" trên NDT Task`,
+          html: buildInvitationEmailHtml({ workspaceName, inviterName, inviteLink }),
         }),
         ENQUEUE_TIMEOUT_MS,
       );
@@ -760,4 +761,56 @@ export class WorkspaceService {
       createdAt: invitation.createdAt,
     };
   }
+}
+
+// Email HTML inline style (yêu cầu của phần lớn mail client) — bám theo Brand
+// Gradient xanh→tím đã định nghĩa ở frontend/CLAUDE.md mục 6.4 để đồng nhất
+// nhận diện thương hiệu giữa email và giao diện web.
+function buildInvitationEmailHtml(params: {
+  workspaceName: string;
+  inviterName: string;
+  inviteLink: string;
+}): string {
+  const { workspaceName, inviterName, inviteLink } = params;
+  const brandGradient = 'linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%)';
+
+  return `
+<div style="background-color:#F4F6FB;padding:32px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#FFFFFF;border-radius:20px;overflow:hidden;border:1px solid #EEF0F6;">
+    <tr>
+      <td style="background:${brandGradient};padding:28px 32px;text-align:center;">
+        <span style="font-size:20px;font-weight:700;color:#FFFFFF;letter-spacing:-0.02em;">NDT Task</span>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:32px;">
+        <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#12131A;">Bạn được mời tham gia Workspace</h1>
+        <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#4B5563;">
+          <strong style="color:#12131A;">${inviterName}</strong> vừa mời bạn tham gia Workspace
+          <strong style="color:#12131A;">${workspaceName}</strong> trên NDT Task — nền tảng quản lý công việc theo Kanban/Scrum cho đội nhóm.
+        </p>
+        <table role="presentation">
+          <tr>
+            <td style="border-radius:999px;background:${brandGradient};">
+              <a href="${inviteLink}" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:999px;">
+                Xem lời mời
+              </a>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#9CA3AF;">
+          Nếu nút phía trên không hoạt động, hãy sao chép đường dẫn sau vào trình duyệt:<br />
+          <a href="${inviteLink}" style="color:#3B82F6;word-break:break-all;">${inviteLink}</a>
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:20px 32px;background:#F9FAFB;border-top:1px solid #EEF0F6;">
+        <p style="margin:0;font-size:12px;color:#9CA3AF;">
+          Lời mời sẽ hết hạn sau 7 ngày. Nếu bạn không mong đợi email này, có thể bỏ qua.
+        </p>
+      </td>
+    </tr>
+  </table>
+</div>`.trim();
 }
