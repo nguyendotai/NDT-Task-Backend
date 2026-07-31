@@ -7,6 +7,7 @@ import { WorkspaceRole } from '@prisma/client';
 import { LabelRepository } from './label.repository';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { ActivityLogService } from '../activity/activity-log.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { CreateLabelDto } from './dto/create-label.dto';
 import { UpdateLabelDto } from './dto/update-label.dto';
 import { LabelEntity } from './entities/label.entity';
@@ -24,6 +25,7 @@ export class LabelService {
     private readonly labelRepository: LabelRepository,
     private readonly workspaceService: WorkspaceService,
     private readonly activityLogService: ActivityLogService,
+    private readonly realtimeGateway: RealtimeGateway,
   ) {}
 
   async create(
@@ -52,6 +54,10 @@ export class LabelService {
       entityId: taskId,
       action: 'task.label_added',
       metadata: { labelId: label.id },
+    });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'task.label_added', {
+      taskId,
+      labelId: label.id,
     });
 
     return this.toEntity(label);
@@ -91,6 +97,10 @@ export class LabelService {
       action: 'task.label_updated',
       metadata: { labelId: id },
     });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'task.label_updated', {
+      taskId: task.id,
+      labelId: id,
+    });
 
     return this.toEntity(updated);
   }
@@ -111,6 +121,10 @@ export class LabelService {
       entityId: task.id,
       action: 'task.label_removed',
       metadata: { labelId: id },
+    });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'task.label_removed', {
+      taskId: task.id,
+      labelId: id,
     });
   }
 

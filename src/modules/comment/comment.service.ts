@@ -9,6 +9,7 @@ import { CommentRepository } from './comment.repository';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { ActivityLogService } from '../activity/activity-log.service';
 import { NotificationService } from '../notification/notification.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { CommentEntity } from './entities/comment.entity';
@@ -24,6 +25,7 @@ export class CommentService {
     private readonly workspaceService: WorkspaceService,
     private readonly activityLogService: ActivityLogService,
     private readonly notificationService: NotificationService,
+    private readonly realtimeGateway: RealtimeGateway,
   ) {}
 
   async create(
@@ -67,6 +69,10 @@ export class CommentService {
       action: 'comment.created',
       metadata: { commentId: comment.id },
     });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'comment.created', {
+      taskId,
+      commentId: comment.id,
+    });
     if (mentions.length > 0) {
       await this.activityLogService.record({
         workspaceId,
@@ -96,6 +102,7 @@ export class CommentService {
         message: dto.content,
         metadata: { taskId, commentId: comment.id },
       });
+      this.realtimeGateway.emitToUser(recipientId, 'notification.created', {});
     }
     for (const mentionedUserId of mentions) {
       if (mentionedUserId === userId) continue;
@@ -107,6 +114,11 @@ export class CommentService {
         message: dto.content,
         metadata: { taskId, commentId: comment.id },
       });
+      this.realtimeGateway.emitToUser(
+        mentionedUserId,
+        'notification.created',
+        {},
+      );
     }
 
     return this.toEntity(comment);
@@ -150,6 +162,10 @@ export class CommentService {
       action: 'comment.updated',
       metadata: { commentId },
     });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'comment.updated', {
+      taskId: comment.taskId,
+      commentId,
+    });
 
     return this.toEntity(updated);
   }
@@ -172,6 +188,10 @@ export class CommentService {
       entityId: comment.taskId,
       action: 'comment.deleted',
       metadata: { commentId },
+    });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'comment.deleted', {
+      taskId: comment.taskId,
+      commentId,
     });
   }
 

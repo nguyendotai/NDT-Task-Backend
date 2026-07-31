@@ -7,9 +7,10 @@ import { ChecklistService } from './checklist.service';
 import { ChecklistRepository } from './checklist.repository';
 import { WorkspaceModule } from '../workspace/workspace.module';
 import { ActivityModule } from '../activity/activity.module';
+import { RealtimeModule } from '../realtime/realtime.module';
 
 @Module({
-  imports: [WorkspaceModule, ActivityModule],
+  imports: [WorkspaceModule, ActivityModule, RealtimeModule],
   controllers: [ChecklistController, TaskChecklistsController],
   providers: [ChecklistService, ChecklistRepository],
 })

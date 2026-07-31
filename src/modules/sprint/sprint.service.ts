@@ -342,16 +342,21 @@ export class SprintService {
       actorId,
     );
     await Promise.all(
-      members.map((member) =>
-        this.notificationService.notify({
+      members.map(async (member) => {
+        await this.notificationService.notify({
           workspaceId,
           recipientId: member.user.id,
           type: entry.type,
           title: entry.title,
           message: entry.message,
           metadata: entry.metadata,
-        }),
-      ),
+        });
+        this.realtimeGateway.emitToUser(
+          member.user.id,
+          'notification.created',
+          {},
+        );
+      }),
     );
   }
 
