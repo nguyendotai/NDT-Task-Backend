@@ -26,7 +26,8 @@
     { "key": "attachmentId", "value": "", "type": "string" },
     { "key": "targetUserId", "value": "", "type": "string" },
     { "key": "checklistId", "value": "", "type": "string" },
-    { "key": "labelId", "value": "", "type": "string" }
+    { "key": "labelId", "value": "", "type": "string" },
+    { "key": "notificationId", "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -1425,6 +1426,77 @@
               "path": ["labels", "{{labelId}}"]
             },
             "description": "Xóa Label khỏi Task."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Notification",
+      "item": [
+        {
+          "name": "List My Notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 && pm.response.json().data.length > 0) {",
+                  "  pm.collectionVariables.set('notificationId', pm.response.json().data[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/notifications?unread=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications"],
+              "query": [{ "key": "unread", "value": "true" }]
+            },
+            "description": "Chuông thông báo cá nhân, gộp mọi Workspace, tối đa 50 bản ghi mới nhất. Bỏ query `unread` để lấy cả đã đọc. Tự động lưu notificationId từ bản ghi đầu tiên."
+          },
+          "response": []
+        },
+        {
+          "name": "Mark One Notification Read",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "{{notificationId}}", "read"]
+            },
+            "description": "403 nếu không phải Notification của user hiện tại."
+          },
+          "response": []
+        },
+        {
+          "name": "Mark All Notifications Read",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/read-all",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "read-all"]
+            },
+            "description": "Idempotent — chỉ ảnh hưởng Notification của chính user gọi API."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Notification",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/{{notificationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "{{notificationId}}"]
+            },
+            "description": "Soft delete — chỉ ẩn khỏi danh sách, không xóa vật lý."
           },
           "response": []
         }
