@@ -1,15 +1,10 @@
-import { IsBoolean, IsInt, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
+// checklist.md #5.2: chỉ cho sửa title qua đây — đổi vị trí dùng
+// PATCH /tasks/:taskId/checklists/reorder, đổi trạng thái dùng /complete, /reopen.
 export class UpdateChecklistItemDto {
-  @IsOptional()
   @IsString()
-  title?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  isDone?: boolean;
-
-  @IsOptional()
-  @IsInt()
-  order?: number;
+  @IsNotEmpty()
+  @MaxLength(255)
+  title: string;
 }

@@ -57,7 +57,6 @@ export class TaskService {
       order,
       createdBy: userId,
       storyPoints: dto.storyPoints,
-      labels: dto.labels,
     });
 
     await this.activityLogService.record({
@@ -192,16 +191,22 @@ export class TaskService {
       });
     }
 
-    if (dto.assigneeId && dto.assigneeId !== task.assigneeId) {
-      const assigneeMembership = await this.workspaceService.findMembership(
-        workspaceId,
-        dto.assigneeId,
-      );
-      if (!assigneeMembership) {
-        throw new BadRequestException(
-          'Chỉ có thể gán Task cho Member của Workspace',
+    let newlyAssignedIds: string[] = [];
+    if (dto.assigneeIds) {
+      for (const candidateId of dto.assigneeIds) {
+        const assigneeMembership = await this.workspaceService.findMembership(
+          workspaceId,
+          candidateId,
         );
+        if (!assigneeMembership) {
+          throw new BadRequestException(
+            'Chỉ có thể gán Task cho Member của Workspace',
+          );
+        }
       }
+      newlyAssignedIds = dto.assigneeIds.filter(
+        (id) => !task.assigneeIds.includes(id),
+      );
     }
 
     if (
@@ -232,9 +237,8 @@ export class TaskService {
       status: derivedStatus,
       startDate: dto.startDate ? new Date(dto.startDate) : undefined,
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
-      assigneeId: dto.assigneeId,
+      assigneeIds: dto.assigneeIds,
       storyPoints: dto.storyPoints,
-      labels: dto.labels,
     });
 
     await this.activityLogService.record({
@@ -245,10 +249,10 @@ export class TaskService {
       action: isMovingColumn || isReordering ? 'task.moved' : 'task.updated',
     });
 
-    if (dto.assigneeId && dto.assigneeId !== task.assigneeId) {
+    for (const recipientId of newlyAssignedIds) {
       await this.notificationService.notify({
         workspaceId,
-        recipientId: dto.assigneeId,
+        recipientId,
         type: NotificationType.TASK_ASSIGNED,
         title: 'Bạn được giao một Task mới',
         message: updated.title,
@@ -354,6 +358,89 @@ export class TaskService {
     await this.taskRepository.deleteStar(taskId, userId);
   }
 
+  // Watcher theo dõi Task để nhận Notification, không phải Assignee. Theo
+  // quyết định của bạn: bỏ trống targetUserId = tự thêm chính mình; chỉ
+  // Owner/Admin được thêm/gỡ Watcher cho người khác.
+  async addWatcher(
+    taskId: string,
+    actorUserId: string,
+    targetUserId?: string,
+  ): Promise<void> {
+    const task = await this.getActiveTaskOrThrow(taskId);
+    const column = await this.getActiveColumnOrThrow(task.columnId);
+    const workspaceId = column.board.workspaceId;
+    const actorMember = await this.workspaceService.assertMembership(
+      workspaceId,
+      actorUserId,
+    );
+
+    const watchUserId = targetUserId ?? actorUserId;
+    if (watchUserId !== actorUserId) {
+      if (
+        actorMember.role !== WorkspaceRole.OWNER &&
+        actorMember.role !== WorkspaceRole.ADMIN
+      ) {
+        throw new ForbiddenException(
+          'Chỉ Owner/Admin được thêm Watcher cho người khác',
+        );
+      }
+      const targetMembership = await this.workspaceService.findMembership(
+        workspaceId,
+        watchUserId,
+      );
+      if (!targetMembership) {
+        throw new BadRequestException(
+          'Chỉ có thể thêm Watcher là Member của Workspace',
+        );
+      }
+    }
+
+    const existing = await this.taskRepository.findWatcher(taskId, watchUserId);
+    if (!existing) {
+      await this.taskRepository.createWatcher(taskId, watchUserId);
+    }
+  }
+
+  async removeWatcher(
+    taskId: string,
+    actorUserId: string,
+    targetUserId: string,
+  ): Promise<void> {
+    const task = await this.getActiveTaskOrThrow(taskId);
+    const column = await this.getActiveColumnOrThrow(task.columnId);
+    const workspaceId = column.board.workspaceId;
+    const actorMember = await this.workspaceService.assertMembership(
+      workspaceId,
+      actorUserId,
+    );
+
+    if (
+      targetUserId !== actorUserId &&
+      actorMember.role !== WorkspaceRole.OWNER &&
+      actorMember.role !== WorkspaceRole.ADMIN
+    ) {
+      throw new ForbiddenException(
+        'Chỉ Owner/Admin được gỡ Watcher của người khác',
+      );
+    }
+
+    await this.taskRepository.deleteWatcher(taskId, targetUserId);
+  }
+
+  async listWatchers(
+    taskId: string,
+    userId: string,
+  ): Promise<{ userId: string }[]> {
+    const task = await this.getActiveTaskOrThrow(taskId);
+    const column = await this.getActiveColumnOrThrow(task.columnId);
+    await this.workspaceService.assertMembership(
+      column.board.workspaceId,
+      userId,
+    );
+    const watchers = await this.taskRepository.listWatchers(taskId);
+    return watchers.map((watcher) => ({ userId: watcher.userId }));
+  }
+
   // ---------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------
@@ -384,7 +471,7 @@ export class TaskService {
     if (role === WorkspaceRole.OWNER || role === WorkspaceRole.ADMIN) {
       return;
     }
-    if (task.createdBy === userId || task.assigneeId === userId) {
+    if (task.createdBy === userId || task.assigneeIds.includes(userId)) {
       return;
     }
     throw new ForbiddenException(
@@ -431,9 +518,8 @@ export class TaskService {
       backlogOrder: task.backlogOrder,
       startDate: task.startDate,
       dueDate: task.dueDate,
-      assigneeId: task.assigneeId,
+      assigneeIds: task.assigneeIds,
       storyPoints: task.storyPoints,
-      labels: task.labels,
       createdBy: task.createdBy,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,

@@ -15,9 +15,10 @@ export class TaskEntity {
   backlogOrder?: number | null;
   startDate?: Date | null;
   dueDate?: Date | null;
-  assigneeId?: string | null;
+  // task.md #3: nhiều người được giao cùng lúc (theo quyết định của bạn,
+  // thay cho assigneeId 1 người trước đây).
+  assigneeIds: string[];
   storyPoints?: number | null;
-  labels: string[];
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;

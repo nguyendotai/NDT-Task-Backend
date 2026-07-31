@@ -43,17 +43,15 @@ export class TaskRepository {
     order: number;
     createdBy: string;
     storyPoints?: number;
-    labels?: string[];
   }) {
-    // Ghi tường minh sprintId/backlogOrder/assigneeId/deletedAt/deletedBy = null:
+    // Ghi tường minh sprintId/backlogOrder/assigneeIds/deletedAt/deletedBy = null:
     // Prisma+MongoDB không match filter nếu field hoàn toàn không tồn tại.
     return this.prisma.task.create({
       data: {
         ...data,
-        labels: data.labels ?? [],
         sprintId: null,
         backlogOrder: null,
-        assigneeId: null,
+        assigneeIds: [],
         deletedAt: null,
         deletedBy: null,
       },
@@ -86,9 +84,8 @@ export class TaskRepository {
       dueDate?: Date;
       columnId?: string;
       order?: number;
-      assigneeId?: string;
+      assigneeIds?: string[];
       storyPoints?: number | null;
-      labels?: string[];
     },
   ) {
     return this.prisma.task.update({
@@ -269,8 +266,8 @@ export class TaskRepository {
     return this.prisma.task.findMany({
       where: {
         ...(scope === 'assignee-or-creator'
-          ? { OR: [{ assigneeId: userId }, { createdBy: userId }] }
-          : { assigneeId: userId }),
+          ? { OR: [{ assigneeIds: { has: userId } }, { createdBy: userId }] }
+          : { assigneeIds: { has: userId } }),
         deletedAt: null,
         ...(done !== undefined ? { column: { isDoneColumn: done } } : {}),
         ...(taskIds ? { id: { in: taskIds } } : {}),
@@ -307,5 +304,21 @@ export class TaskRepository {
       where: { userId, taskId: { in: taskIds } },
       select: { taskId: true },
     });
+  }
+
+  findWatcher(taskId: string, userId: string) {
+    return this.prisma.taskWatcher.findFirst({ where: { taskId, userId } });
+  }
+
+  createWatcher(taskId: string, userId: string) {
+    return this.prisma.taskWatcher.create({ data: { taskId, userId } });
+  }
+
+  deleteWatcher(taskId: string, userId: string) {
+    return this.prisma.taskWatcher.deleteMany({ where: { taskId, userId } });
+  }
+
+  listWatchers(taskId: string) {
+    return this.prisma.taskWatcher.findMany({ where: { taskId } });
   }
 }

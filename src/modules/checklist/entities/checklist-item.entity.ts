@@ -4,6 +4,7 @@ export class ChecklistItemEntity {
   title: string;
   isDone: boolean;
   order: number;
+  completedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
