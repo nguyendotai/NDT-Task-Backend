@@ -1563,6 +1563,24 @@
           "response": []
         },
         {
+          "name": "Search Task (last updated)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/search?q=login&type=task&updatedFrom=2026-01-01T00:00:00.000Z",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "search"],
+              "query": [
+                { "key": "q", "value": "login" },
+                { "key": "type", "value": "task" },
+                { "key": "updatedFrom", "value": "2026-01-01T00:00:00.000Z" }
+              ]
+            },
+            "description": "updatedFrom/updatedTo lọc theo Task.updatedAt (khác dateFrom/dateTo đang lọc dueDate) — dùng cho filter \"Last updated\" ở Frontend."
+          },
+          "response": []
+        },
+        {
           "name": "List Distinct Labels",
           "request": {
             "method": "GET",
