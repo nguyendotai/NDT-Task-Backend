@@ -8,6 +8,7 @@ import { WorkspaceRole } from '@prisma/client';
 import { ChecklistRepository } from './checklist.repository';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { ActivityLogService } from '../activity/activity-log.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { CreateChecklistItemDto } from './dto/create-checklist-item.dto';
 import { UpdateChecklistItemDto } from './dto/update-checklist-item.dto';
 import { ChecklistItemEntity } from './entities/checklist-item.entity';
@@ -25,6 +26,7 @@ export class ChecklistService {
     private readonly checklistRepository: ChecklistRepository,
     private readonly workspaceService: WorkspaceService,
     private readonly activityLogService: ActivityLogService,
+    private readonly realtimeGateway: RealtimeGateway,
   ) {}
 
   async create(
@@ -54,6 +56,10 @@ export class ChecklistService {
       entityId: taskId,
       action: 'checklist.created',
       metadata: { checklistItemId: item.id },
+    });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'checklist.created', {
+      taskId,
+      checklistItemId: item.id,
     });
 
     return this.toEntity(item);
@@ -93,6 +99,10 @@ export class ChecklistService {
       action: 'checklist.updated',
       metadata: { checklistItemId: id },
     });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'checklist.updated', {
+      taskId: task.id,
+      checklistItemId: id,
+    });
 
     return this.toEntity(updated);
   }
@@ -119,6 +129,10 @@ export class ChecklistService {
       action: 'checklist.completed',
       metadata: { checklistItemId: id },
     });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'checklist.completed', {
+      taskId: task.id,
+      checklistItemId: id,
+    });
 
     return this.toEntity(updated);
   }
@@ -144,6 +158,10 @@ export class ChecklistService {
       entityId: task.id,
       action: 'checklist.reopened',
       metadata: { checklistItemId: id },
+    });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'checklist.reopened', {
+      taskId: task.id,
+      checklistItemId: id,
     });
 
     return this.toEntity(updated);
@@ -184,6 +202,9 @@ export class ChecklistService {
       entityId: taskId,
       action: 'checklist.moved',
     });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'checklist.moved', {
+      taskId,
+    });
 
     return reordered.map((item) => this.toEntity(item));
   }
@@ -205,6 +226,10 @@ export class ChecklistService {
       entityId: task.id,
       action: 'checklist.deleted',
       metadata: { checklistItemId: id },
+    });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'checklist.deleted', {
+      taskId: task.id,
+      checklistItemId: id,
     });
   }
 
