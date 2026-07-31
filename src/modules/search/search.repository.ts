@@ -13,6 +13,8 @@ export interface TaskSearchFilters {
   columnId?: string;
   dateFrom?: string;
   dateTo?: string;
+  updatedFrom?: string;
+  updatedTo?: string;
   sortBy?: 'createdAt' | 'updatedAt' | 'priority' | 'dueDate';
   order?: 'asc' | 'desc';
 }
@@ -88,6 +90,18 @@ export class SearchRepository {
             dueDate: {
               ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}),
               ...(filters.dateTo ? { lte: new Date(filters.dateTo) } : {}),
+            },
+          }
+        : {}),
+      ...(filters.updatedFrom || filters.updatedTo
+        ? {
+            updatedAt: {
+              ...(filters.updatedFrom
+                ? { gte: new Date(filters.updatedFrom) }
+                : {}),
+              ...(filters.updatedTo
+                ? { lte: new Date(filters.updatedTo) }
+                : {}),
             },
           }
         : {}),

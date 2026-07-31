@@ -83,6 +83,16 @@ export class SearchQueryDto {
   @IsISO8601()
   dateTo?: string;
 
+  // Lọc theo Task.updatedAt — khác dateFrom/dateTo (đang lọc dueDate). Dùng
+  // cho panel filter "Last updated" (Any time/Today/Yesterday/7 ngày/...).
+  @IsOptional()
+  @IsISO8601()
+  updatedFrom?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  updatedTo?: string;
+
   @IsOptional()
   @IsIn(SORT_FIELDS)
   sortBy?: (typeof SORT_FIELDS)[number];

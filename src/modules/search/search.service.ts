@@ -72,6 +72,8 @@ export class SearchService {
         columnId: dto.columnId,
         dateFrom: dto.dateFrom,
         dateTo: dto.dateTo,
+        updatedFrom: dto.updatedFrom,
+        updatedTo: dto.updatedTo,
         sortBy: dto.sortBy,
         order: dto.order,
       };
