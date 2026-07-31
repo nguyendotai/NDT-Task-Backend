@@ -268,6 +268,7 @@ export class TaskService {
         message: updated.title,
         metadata: { taskId },
       });
+      this.realtimeGateway.emitToUser(recipientId, 'notification.created', {});
     }
 
     const star = await this.taskRepository.findStar(taskId, userId);
@@ -414,6 +415,10 @@ export class TaskService {
     const existing = await this.taskRepository.findWatcher(taskId, watchUserId);
     if (!existing) {
       await this.taskRepository.createWatcher(taskId, watchUserId);
+      this.realtimeGateway.emitToWorkspace(workspaceId, 'task.watcher_added', {
+        taskId,
+        userId: watchUserId,
+      });
     }
   }
 
@@ -441,6 +446,10 @@ export class TaskService {
     }
 
     await this.taskRepository.deleteWatcher(taskId, targetUserId);
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'task.watcher_removed', {
+      taskId,
+      userId: targetUserId,
+    });
   }
 
   async listWatchers(

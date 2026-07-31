@@ -1,3 +1,4 @@
+import { Inject, forwardRef } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -47,6 +48,7 @@ export class RealtimeGateway
   constructor(
     private readonly jwtService: JwtService,
     private readonly userService: UserService,
+    @Inject(forwardRef(() => WorkspaceService))
     private readonly workspaceService: WorkspaceService,
   ) {}
 
@@ -78,6 +80,10 @@ export class RealtimeGateway
     const payload = await this.jwtService.verifyAsync<JwtPayload>(token);
     const user = await this.userService.getProfile(payload.sub);
     setSocketUserId(client, user.id);
+    // notification.md #11: chuông thông báo cá nhân — tự join room riêng theo
+    // userId ngay khi xác thực xong, không cần client chủ động "join" như
+    // Workspace (mỗi user chỉ có đúng 1 room riêng, không cần chọn phạm vi).
+    await client.join(this.userRoomName(user.id));
   }
 
   @SubscribeMessage('join-workspace')
@@ -112,14 +118,25 @@ export class RealtimeGateway
     }
   }
 
-  // Các Service khác (Task/Column/Sprint) gọi hàm này ngay sau khi ghi
-  // Activity Log để phát sự kiện cho mọi Member đang mở cùng Workspace.
+  // Các Service khác (Task/Column/Sprint/Comment/Checklist/Label/Attachment)
+  // gọi hàm này ngay sau khi ghi Activity Log để phát sự kiện cho mọi Member
+  // đang mở cùng Workspace.
   emitToWorkspace(workspaceId: string, event: string, payload: unknown): void {
     this.server?.to(this.roomName(workspaceId)).emit(event, payload);
   }
 
+  // Gọi ngay sau notificationService.notify() để chuông thông báo cập nhật
+  // tức thời thay vì chờ Frontend poll lại mỗi 30s.
+  emitToUser(userId: string, event: string, payload: unknown): void {
+    this.server?.to(this.userRoomName(userId)).emit(event, payload);
+  }
+
   private roomName(workspaceId: string): string {
     return `workspace:${workspaceId}`;
+  }
+
+  private userRoomName(userId: string): string {
+    return `user:${userId}`;
   }
 
   private extractToken(client: Socket): string {

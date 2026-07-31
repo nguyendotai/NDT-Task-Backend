@@ -13,6 +13,7 @@ import { AttachmentRepository } from './attachment.repository';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { ActivityLogService } from '../activity/activity-log.service';
 import { NotificationService } from '../notification/notification.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { AttachmentEntity } from './entities/attachment.entity';
 
 type CloudinaryClient = typeof import('cloudinary').v2;
@@ -30,6 +31,7 @@ export class AttachmentService {
     private readonly workspaceService: WorkspaceService,
     private readonly activityLogService: ActivityLogService,
     private readonly notificationService: NotificationService,
+    private readonly realtimeGateway: RealtimeGateway,
     @Inject(CLOUDINARY_CLIENT) private readonly cloudinary: CloudinaryClient,
   ) {}
 
@@ -60,6 +62,11 @@ export class AttachmentService {
       action: 'attachment.uploaded',
       metadata: { attachmentId: attachment.id, fileName: file.originalname },
     });
+    this.realtimeGateway.emitToWorkspace(
+      task.workspaceId,
+      'attachment.uploaded',
+      { taskId, attachmentId: attachment.id },
+    );
 
     const watchers = await this.attachmentRepository.listWatcherUserIds(taskId);
     const recipients = new Set(
@@ -77,6 +84,7 @@ export class AttachmentService {
         message: file.originalname,
         metadata: { taskId, attachmentId: attachment.id },
       });
+      this.realtimeGateway.emitToUser(recipientId, 'notification.created', {});
     }
 
     return this.toEntity(attachment);
@@ -113,6 +121,11 @@ export class AttachmentService {
       action: 'attachment.deleted',
       metadata: { attachmentId, fileName: attachment.fileName },
     });
+    this.realtimeGateway.emitToWorkspace(
+      task.workspaceId,
+      'attachment.deleted',
+      { taskId: attachment.taskId, attachmentId },
+    );
   }
 
   // attachment.md #5.4: chỉ cho đổi fileName, không đổi fileUrl/fileType/fileSize.
@@ -142,6 +155,11 @@ export class AttachmentService {
       action: 'attachment.renamed',
       metadata: { attachmentId, fileName },
     });
+    this.realtimeGateway.emitToWorkspace(
+      task.workspaceId,
+      'attachment.renamed',
+      { taskId: attachment.taskId, attachmentId },
+    );
 
     return this.toEntity(updated);
   }

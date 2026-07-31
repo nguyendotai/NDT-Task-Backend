@@ -3,6 +3,8 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -18,6 +20,7 @@ import { WorkspaceRepository } from './workspace.repository';
 import { ActivityLogService } from '../activity/activity-log.service';
 import { NotificationService } from '../notification/notification.service';
 import { MailQueueService } from '../../config/mail-queue.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { UserService } from '../user/user.service';
 import { UserEntity } from '../user/entities/user.entity';
 import { withTimeout } from '../../common/utils/with-timeout.util';
@@ -58,6 +61,8 @@ export class WorkspaceService {
     private readonly notificationService: NotificationService,
     private readonly mailQueueService: MailQueueService,
     private readonly configService: ConfigService,
+    @Inject(forwardRef(() => RealtimeGateway))
+    private readonly realtimeGateway: RealtimeGateway,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -428,6 +433,11 @@ export class WorkspaceService {
         message: `Bạn được mời tham gia Workspace "${workspace.name}"`,
         metadata: { invitationId: invitation.id },
       });
+      this.realtimeGateway.emitToUser(
+        existingUser.id,
+        'notification.created',
+        {},
+      );
     }
 
     await this.sendInvitationEmail(email, workspace.name, actor.name, token);
