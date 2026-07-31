@@ -12,9 +12,18 @@ export class CommentRepository {
       where: { id: taskId, deletedAt: null },
       select: {
         id: true,
-        assigneeId: true,
+        assigneeIds: true,
         column: { select: { board: { select: { workspaceId: true } } } },
       },
+    });
+  }
+
+  // comment.md #5.1/notification.md: Watcher cũng nhận Notification khi có
+  // Comment mới, giống Assignee.
+  listWatcherUserIds(taskId: string) {
+    return this.prisma.taskWatcher.findMany({
+      where: { taskId },
+      select: { userId: true },
     });
   }
 

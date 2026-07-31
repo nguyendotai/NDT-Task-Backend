@@ -12,9 +12,18 @@ export class AttachmentRepository {
       where: { id: taskId, deletedAt: null },
       select: {
         id: true,
-        assigneeId: true,
+        assigneeIds: true,
         column: { select: { board: { select: { workspaceId: true } } } },
       },
+    });
+  }
+
+  // attachment.md #9: Watcher cũng nhận Notification khi có Attachment mới,
+  // giống Assignee.
+  listWatcherUserIds(taskId: string) {
+    return this.prisma.taskWatcher.findMany({
+      where: { taskId },
+      select: { userId: true },
     });
   }
 
@@ -48,5 +57,10 @@ export class AttachmentRepository {
       where: { id },
       data: { deletedAt: new Date(), deletedBy },
     });
+  }
+
+  // attachment.md #5.4: chỉ cho phép đổi fileName, không đổi fileUrl/fileType/fileSize.
+  rename(id: string, fileName: string) {
+    return this.prisma.attachment.update({ where: { id }, data: { fileName } });
   }
 }

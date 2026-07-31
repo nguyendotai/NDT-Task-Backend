@@ -16,6 +16,7 @@ import { TaskService } from './task.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { ListTasksQueryDto } from './dto/list-tasks-query.dto';
+import { AddWatcherDto } from './dto/add-watcher.dto';
 
 function toBoolean(value?: string): boolean | undefined {
   return value === undefined ? undefined : value === 'true';
@@ -77,6 +78,29 @@ export class TaskController {
   @Delete(':id/star')
   unstar(@CurrentUser() user: UserEntity, @Param('id') id: string) {
     return this.taskService.unstar(user.id, id);
+  }
+
+  @Post(':id/watchers')
+  addWatcher(
+    @CurrentUser() user: UserEntity,
+    @Param('id') id: string,
+    @Body() dto: AddWatcherDto,
+  ) {
+    return this.taskService.addWatcher(id, user.id, dto.userId);
+  }
+
+  @Get(':id/watchers')
+  listWatchers(@CurrentUser() user: UserEntity, @Param('id') id: string) {
+    return this.taskService.listWatchers(id, user.id);
+  }
+
+  @Delete(':id/watchers/:userId')
+  removeWatcher(
+    @CurrentUser() user: UserEntity,
+    @Param('id') id: string,
+    @Param('userId') targetUserId: string,
+  ) {
+    return this.taskService.removeWatcher(id, user.id, targetUserId);
   }
 }
 

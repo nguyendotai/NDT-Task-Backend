@@ -8,7 +8,6 @@ import {
   IsString,
   IsUUID,
   Min,
-  MaxLength,
 } from 'class-validator';
 import { TaskPriority } from '@prisma/client';
 
@@ -39,9 +38,13 @@ export class UpdateTaskDto {
   @Min(0)
   order?: number;
 
+  // task.md #3: nhiều người được giao cùng lúc (theo quyết định của bạn,
+  // thay cho assigneeId 1 người trước đây). Gửi mảng rỗng để bỏ gán hết.
   @IsOptional()
-  @IsUUID()
-  assigneeId?: string;
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsUUID('4', { each: true })
+  assigneeIds?: string[];
 
   @IsOptional()
   @IsDateString()
@@ -57,11 +60,4 @@ export class UpdateTaskDto {
   @IsInt()
   @Min(0)
   storyPoints?: number;
-
-  @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(20)
-  @IsString({ each: true })
-  @MaxLength(50, { each: true })
-  labels?: string[];
 }

@@ -70,13 +70,13 @@ model User {
   ownedWorkspaces      Workspace[]
   workspaceMemberships WorkspaceMember[]
   sentInvitations      WorkspaceInvitation[]
-  assignedTasks        Task[]                @relation("TaskAssignee")
   createdTasks         Task[]                @relation("TaskCreator")
   comments             Comment[]
   attachments          Attachment[]
   notifications        Notification[]
   activityLogs         ActivityLog[]
   taskStars            TaskStar[]
+  taskWatches          TaskWatcher[]
 
   @@map("users")
 }
@@ -286,13 +286,13 @@ model Task {
   backlogOrder Int?
   startDate    DateTime?
   dueDate      DateTime?
-  assigneeId   String?
+  // task.md #3 (Người dùng: assigneeIds) — Task có thể gán nhiều người cùng
+  // lúc, theo quyết định của bạn (thay cho assigneeId 1 người trước đây).
+  assigneeIds  String[]     @default([])
   // Bổ sung theo yêu cầu (không thuộc field chuẩn task.md #3) — hiển thị ở
   // modal chi tiết Task. storyPoints: số điểm ước lượng tự do, không ràng
-  // buộc nghiệp vụ. labels: chuỗi tự do, chưa phải Label entity riêng như
-  // gợi ý ở task.md #13 (label.md chưa tồn tại).
+  // buộc nghiệp vụ.
   storyPoints  Int?
-  labels       String[]     @default([])
   createdBy    String
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -301,16 +301,19 @@ model Task {
 
   column      Column          @relation(fields: [columnId], references: [id])
   sprint      Sprint?         @relation(fields: [sprintId], references: [id])
-  assignee    User?           @relation("TaskAssignee", fields: [assigneeId], references: [id])
   creator     User            @relation("TaskCreator", fields: [createdBy], references: [id])
   comments    Comment[]
   checklist   ChecklistItem[]
   attachments Attachment[]
+  // labels.md/task.md #13: mỗi Task tự có Label riêng (không dùng chung giữa
+  // các Task), theo quyết định của bạn — không phải Label cấp Workspace.
+  labels      Label[]
   stars       TaskStar[]
+  watchers    TaskWatcher[]
 
   @@index([columnId])
   @@index([sprintId])
-  @@index([assigneeId])
+  @@index([assigneeIds])
   @@index([status])
   @@index([dueDate])
   @@map("tasks")
@@ -356,21 +359,57 @@ model Comment {
   @@map("comments")
 }
 
+// checklist.md #10: Checklist không hỗ trợ Soft Delete riêng — tuân theo
+// chính sách của Task (Task xóa mềm thì Checklist không hiển thị), nên
+// không có deletedAt/deletedBy ở đây, xóa Checklist là hard delete thật.
 model ChecklistItem {
-  id        String    @id @default(uuid()) @map("_id")
-  taskId    String
-  title     String
-  isDone    Boolean   @default(false)
-  order     Int
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-  deletedBy String?
+  id          String    @id @default(uuid()) @map("_id")
+  taskId      String
+  title       String
+  isDone      Boolean   @default(false)
+  order       Int
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   task Task @relation(fields: [taskId], references: [id])
 
   @@index([taskId])
   @@map("checklistItems")
+}
+
+// Label riêng theo từng Task (không tái sử dụng giữa các Task khác), theo
+// quyết định của bạn — task.md #13 gợi ý Label entity dùng chung cấp
+// Workspace (label.md) nhưng chưa áp dụng ở đây.
+model Label {
+  id        String   @id @default(uuid()) @map("_id")
+  taskId    String
+  name      String
+  color     String
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id])
+
+  @@index([taskId])
+  @@map("labels")
+}
+
+// Watcher theo dõi Task để nhận Notification, không phải Assignee. Theo
+// quyết định của bạn: Owner/Admin được thêm Watcher cho bất kỳ Member nào
+// (không chỉ tự thêm chính mình) — hard delete khi unwatch, không audit.
+model TaskWatcher {
+  id        String   @id @default(uuid()) @map("_id")
+  taskId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([taskId, userId])
+  @@index([taskId])
+  @@index([userId])
+  @@map("taskWatchers")
 }
 
 model Attachment {
