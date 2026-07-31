@@ -16,6 +16,7 @@ import { CommentModule } from './modules/comment/comment.module';
 import { AttachmentModule } from './modules/attachment/attachment.module';
 import { ChecklistModule } from './modules/checklist/checklist.module';
 import { LabelModule } from './modules/label/label.module';
+import { SearchModule } from './modules/search/search.module';
 import { PrismaModule } from './database/prisma.module';
 import { RedisModule } from './config/redis.module';
 import { MailModule } from './config/mail.module';
@@ -79,6 +80,7 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
     AttachmentModule,
     ChecklistModule,
     LabelModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],
