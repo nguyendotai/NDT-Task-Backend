@@ -6,6 +6,8 @@ export interface TaskSearchFilters {
   priority?: string;
   status?: string;
   assigneeId?: string;
+  reporterId?: string;
+  done?: boolean;
   label?: string;
   sprintId?: string;
   columnId?: string;
@@ -72,6 +74,10 @@ export class SearchRepository {
       ...(filters.status ? { status: { equals: filters.status, ...CI } } : {}),
       ...(filters.assigneeId
         ? { assigneeIds: { has: filters.assigneeId } }
+        : {}),
+      ...(filters.reporterId ? { createdBy: filters.reporterId } : {}),
+      ...(filters.done !== undefined
+        ? { column: { isDoneColumn: filters.done } }
         : {}),
       ...(filters.sprintId ? { sprintId: filters.sprintId } : {}),
       ...(filters.label
@@ -185,5 +191,24 @@ export class SearchRepository {
       take: limit,
       skip: offset,
     });
+  }
+
+  // Label hiện không dùng chung giữa các Task (mỗi Label thuộc đúng 1 Task) —
+  // dedupe theo tên để phục vụ dropdown filter, giữ màu gặp đầu tiên.
+  async listDistinctLabels(
+    columnIds: string[],
+  ): Promise<{ name: string; color: string }[]> {
+    if (columnIds.length === 0) return [];
+    const labels = await this.prisma.label.findMany({
+      where: { task: { columnId: { in: columnIds }, deletedAt: null } },
+      select: { name: true, color: true },
+    });
+    const byName = new Map<string, string>();
+    for (const label of labels) {
+      if (!byName.has(label.name)) byName.set(label.name, label.color);
+    }
+    return Array.from(byName, ([name, color]) => ({ name, color })).sort(
+      (a, b) => a.name.localeCompare(b.name),
+    );
   }
 }

@@ -12,6 +12,7 @@
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:5000/api/v1", "type": "string" },
     { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "userId", "value": "", "type": "string" },
     { "key": "workspaceId", "value": "", "type": "string" },
     { "key": "memberId", "value": "", "type": "string" },
     { "key": "invitationId", "value": "", "type": "string" },
@@ -63,6 +64,7 @@
                   "if (pm.response.code === 200) {",
                   "  const body = pm.response.json();",
                   "  pm.collectionVariables.set('accessToken', body.data.accessToken);",
+                  "  pm.collectionVariables.set('userId', body.data.user.id);",
                   "}"
                 ]
               }
@@ -1537,7 +1539,39 @@
                 { "key": "offset", "value": "0" }
               ]
             },
-            "description": "Chỉ tìm Task, có thể kèm filter status/assigneeId/label/sprintId/columnId/dateFrom/dateTo. Khi có sortBy sẽ bỏ qua xếp hạng relevance."
+            "description": "Chỉ tìm Task, có thể kèm filter status/assigneeId/reporterId/done/label/sprintId/columnId/dateFrom/dateTo. Khi có sortBy sẽ bỏ qua xếp hạng relevance."
+          },
+          "response": []
+        },
+        {
+          "name": "Search Task (reporter + done)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/search?q=login&type=task&reporterId={{userId}}&done=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "search"],
+              "query": [
+                { "key": "q", "value": "login" },
+                { "key": "type", "value": "task" },
+                { "key": "reporterId", "value": "{{userId}}" },
+                { "key": "done", "value": "false" }
+              ]
+            },
+            "description": "reporterId lọc theo Task.createdBy (\"Reported by me\"). done=true/false lọc theo Column.isDoneColumn của Column chứa Task, cùng ý nghĩa với done ở GET /tasks/me."
+          },
+          "response": []
+        },
+        {
+          "name": "List Distinct Labels",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/search/labels",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "search", "labels"]
+            },
+            "description": "Danh sách Label distinct theo tên trong Workspace (dedupe, giữ màu gặp đầu tiên) — phục vụ dropdown filter Label. Cùng điều kiện quyền như Global Search."
           },
           "response": []
         },

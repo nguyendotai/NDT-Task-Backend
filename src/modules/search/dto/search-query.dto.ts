@@ -1,4 +1,5 @@
 import {
+  IsBooleanString,
   IsIn,
   IsInt,
   IsISO8601,
@@ -50,6 +51,16 @@ export class SearchQueryDto {
   @IsOptional()
   @IsUUID()
   assigneeId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  reporterId?: string;
+
+  // done=true/false lọc theo Column.isDoneColumn — cùng convention với
+  // ListTasksQueryDto (task module), không phải enum status cố định.
+  @IsOptional()
+  @IsBooleanString()
+  done?: string;
 
   @IsOptional()
   @IsString()
