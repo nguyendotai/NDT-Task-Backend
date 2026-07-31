@@ -78,10 +78,19 @@ export class CommentService {
       });
     }
 
-    if (task.assigneeId && task.assigneeId !== userId) {
+    const watchers = await this.commentRepository.listWatcherUserIds(taskId);
+    // notification.md #5.2: gửi cho Assignee + Watcher, không trùng người vừa
+    // comment và không gửi trùng 2 lần cho cùng 1 người.
+    const commentRecipients = new Set(
+      [
+        ...task.assigneeIds,
+        ...watchers.map((watcher) => watcher.userId),
+      ].filter((recipientId) => recipientId !== userId),
+    );
+    for (const recipientId of commentRecipients) {
       await this.notificationService.notify({
         workspaceId,
-        recipientId: task.assigneeId,
+        recipientId,
         type: NotificationType.COMMENT_ADDED,
         title: 'Có bình luận mới trong Task của bạn',
         message: dto.content,

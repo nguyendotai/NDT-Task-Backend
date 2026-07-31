@@ -1,6 +1,4 @@
 import {
-  ArrayMaxSize,
-  IsArray,
   IsDateString,
   IsEnum,
   IsInt,
@@ -8,7 +6,6 @@ import {
   IsString,
   IsUUID,
   Min,
-  MaxLength,
 } from 'class-validator';
 import { TaskPriority } from '@prisma/client';
 
@@ -41,11 +38,4 @@ export class CreateTaskDto {
   @IsInt()
   @Min(0)
   storyPoints?: number;
-
-  @IsOptional()
-  @IsArray()
-  @ArrayMaxSize(20)
-  @IsString({ each: true })
-  @MaxLength(50, { each: true })
-  labels?: string[];
 }

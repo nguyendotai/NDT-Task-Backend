@@ -61,10 +61,17 @@ export class AttachmentService {
       metadata: { attachmentId: attachment.id, fileName: file.originalname },
     });
 
-    if (task.assigneeId && task.assigneeId !== userId) {
+    const watchers = await this.attachmentRepository.listWatcherUserIds(taskId);
+    const recipients = new Set(
+      [
+        ...task.assigneeIds,
+        ...watchers.map((watcher) => watcher.userId),
+      ].filter((recipientId) => recipientId !== userId),
+    );
+    for (const recipientId of recipients) {
       await this.notificationService.notify({
         workspaceId: task.workspaceId,
-        recipientId: task.assigneeId,
+        recipientId,
         type: NotificationType.ATTACHMENT_ADDED,
         title: 'Có tệp đính kèm mới trong Task của bạn',
         message: file.originalname,
@@ -94,7 +101,7 @@ export class AttachmentService {
       task.workspaceId,
       userId,
     );
-    this.assertCanDelete(member.role, attachment, userId);
+    this.assertCanModify(member.role, attachment, userId);
 
     await this.attachmentRepository.softDelete(attachmentId, userId);
 
@@ -106,6 +113,37 @@ export class AttachmentService {
       action: 'attachment.deleted',
       metadata: { attachmentId, fileName: attachment.fileName },
     });
+  }
+
+  // attachment.md #5.4: chỉ cho đổi fileName, không đổi fileUrl/fileType/fileSize.
+  async rename(
+    attachmentId: string,
+    userId: string,
+    fileName: string,
+  ): Promise<AttachmentEntity> {
+    const attachment = await this.getActiveAttachmentOrThrow(attachmentId);
+    const task = await this.getWorkspaceContextOrThrow(attachment.taskId);
+    const member = await this.workspaceService.assertMembership(
+      task.workspaceId,
+      userId,
+    );
+    this.assertCanModify(member.role, attachment, userId);
+
+    const updated = await this.attachmentRepository.rename(
+      attachmentId,
+      fileName,
+    );
+
+    await this.activityLogService.record({
+      workspaceId: task.workspaceId,
+      actorId: userId,
+      entityType: 'Task',
+      entityId: attachment.taskId,
+      action: 'attachment.renamed',
+      metadata: { attachmentId, fileName },
+    });
+
+    return this.toEntity(updated);
   }
 
   private uploadToCloudinary(
@@ -149,12 +187,12 @@ export class AttachmentService {
     }
     return {
       workspaceId: task.column.board.workspaceId,
-      assigneeId: task.assigneeId,
+      assigneeIds: task.assigneeIds,
     };
   }
 
-  // attachment.md #5.3: chỉ uploader hoặc Admin/Owner được xóa.
-  private assertCanDelete(
+  // attachment.md #5.3/#5.4: chỉ uploader hoặc Admin/Owner được xóa hoặc đổi tên.
+  private assertCanModify(
     role: WorkspaceRole,
     attachment: AttachmentRecord,
     userId: string,
@@ -166,7 +204,7 @@ export class AttachmentService {
       return;
     }
     throw new ForbiddenException(
-      'Chỉ Owner/Admin hoặc người tải lên mới được xóa Attachment',
+      'Chỉ Owner/Admin hoặc người tải lên mới được thao tác Attachment',
     );
   }
 

@@ -23,7 +23,10 @@
     { "key": "resetToken", "value": "", "type": "string" },
     { "key": "sprintId", "value": "", "type": "string" },
     { "key": "commentId", "value": "", "type": "string" },
-    { "key": "attachmentId", "value": "", "type": "string" }
+    { "key": "attachmentId", "value": "", "type": "string" },
+    { "key": "targetUserId", "value": "", "type": "string" },
+    { "key": "checklistId", "value": "", "type": "string" },
+    { "key": "labelId", "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -685,7 +688,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"columnId\": \"{{columnId}}\",\n  \"title\": \"Sample Task\",\n  \"description\": \"Created from Postman\",\n  \"priority\": \"MEDIUM\",\n  \"startDate\": \"2026-08-01T00:00:00.000Z\",\n  \"dueDate\": \"2026-08-15T00:00:00.000Z\",\n  \"storyPoints\": 3,\n  \"labels\": [\"backend\"]\n}"
+              "raw": "{\n  \"columnId\": \"{{columnId}}\",\n  \"title\": \"Sample Task\",\n  \"description\": \"Created from Postman\",\n  \"priority\": \"MEDIUM\",\n  \"startDate\": \"2026-08-01T00:00:00.000Z\",\n  \"dueDate\": \"2026-08-15T00:00:00.000Z\",\n  \"storyPoints\": 3\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/tasks",
@@ -764,14 +767,14 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Sample Task (updated)\",\n  \"storyPoints\": 5,\n  \"labels\": [\"backend\", \"urgent\"]\n}"
+              "raw": "{\n  \"title\": \"Sample Task (updated)\",\n  \"storyPoints\": 5,\n  \"assigneeIds\": []\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/tasks/{{taskId}}",
               "host": ["{{baseUrl}}"],
               "path": ["tasks", "{{taskId}}"]
             },
-            "description": "Owner/Admin sửa được mọi Task; Member chỉ sửa được Task do mình tạo hoặc được giao (403 nếu không). Có thể thêm assigneeId (userId của 1 Member trong Workspace) để gán Task. Thêm order (số nguyên, index bắt đầu từ 0) để đổi vị trí chính xác trong Column — xem request 'Reorder Task' bên dưới. Không nhận status trực tiếp — status luôn tự mirror tên Column hiện tại."
+            "description": "Owner/Admin sửa được mọi Task; Member chỉ sửa được Task do mình tạo hoặc có tên trong assigneeIds (403 nếu không). assigneeIds là mảng userId (nhiều người), thay thế toàn bộ danh sách gán — gửi [] để bỏ gán hết. Thêm order (số nguyên, index bắt đầu từ 0) để đổi vị trí chính xác trong Column — xem request 'Reorder Task' bên dưới. Không nhận status trực tiếp — status luôn tự mirror tên Column hiện tại."
           },
           "response": []
         },
@@ -855,6 +858,68 @@
               "path": ["tasks", "{{taskId}}", "restore"]
             },
             "description": "Khôi phục Task đã xóa mềm. Chỉ Owner/Admin (403 với Member). 404 nếu Task chưa từng bị xóa."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Watcher (self)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/watchers",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "watchers"]
+            },
+            "description": "Bỏ trống userId trong body = tự thêm chính mình làm Watcher. Idempotent."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Watcher (Owner/Admin thêm người khác)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{targetUserId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/watchers",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "watchers"]
+            },
+            "description": "Chỉ Owner/Admin được thêm Member khác làm Watcher (403 với Member thường). Set {{targetUserId}} thủ công = user.id của 1 Member (lấy từ List Members)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Watchers",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/watchers",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "watchers"]
+            },
+            "description": "Danh sách Watcher của Task."
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Watcher",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/watchers/{{targetUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "watchers", "{{targetUserId}}"]
+            },
+            "description": "Tự gỡ chính mình được; gỡ người khác chỉ Owner/Admin."
           },
           "response": []
         }
@@ -1127,6 +1192,24 @@
           "response": []
         },
         {
+          "name": "Rename Attachment",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fileName\": \"renamed-file.txt\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/attachments/{{attachmentId}}/rename",
+              "host": ["{{baseUrl}}"],
+              "path": ["attachments", "{{attachmentId}}", "rename"]
+            },
+            "description": "Chỉ đổi được fileName. Chỉ người upload hoặc Owner/Admin (403 nếu không)."
+          },
+          "response": []
+        },
+        {
           "name": "Delete Attachment",
           "request": {
             "method": "DELETE",
@@ -1136,6 +1219,212 @@
               "path": ["attachments", "{{attachmentId}}"]
             },
             "description": "Soft delete Attachment (không xóa file khỏi Cloudinary). Chỉ người upload hoặc Owner/Admin (403 nếu không)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Checklist",
+      "item": [
+        {
+          "name": "Create Checklist Item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('checklistId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Write unit tests\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/checklists",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "checklists"]
+            },
+            "description": "Tạo Checklist trong Task. order tự động = cuối danh sách. Tự động lưu checklistId."
+          },
+          "response": []
+        },
+        {
+          "name": "List Checklists By Task",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/checklists",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "checklists"]
+            },
+            "description": "Danh sách Checklist của Task, sắp theo order tăng dần."
+          },
+          "response": []
+        },
+        {
+          "name": "Reorder Checklists",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderedChecklistIds\": [\"{{checklistId}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/checklists/reorder",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "checklists", "reorder"]
+            },
+            "description": "Gửi toàn bộ id Checklist của Task theo đúng thứ tự mong muốn. 400 nếu thiếu/thừa/không khớp."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Checklist Item",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Write unit tests (updated)\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/checklists/{{checklistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["checklists", "{{checklistId}}"]
+            },
+            "description": "Chỉ sửa được title — đổi vị trí dùng Reorder, đổi trạng thái dùng Complete/Reopen."
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Checklist Item",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/checklists/{{checklistId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["checklists", "{{checklistId}}", "complete"]
+            },
+            "description": "Đánh dấu Checklist hoàn thành. 400 nếu đã Completed."
+          },
+          "response": []
+        },
+        {
+          "name": "Reopen Checklist Item",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/checklists/{{checklistId}}/reopen",
+              "host": ["{{baseUrl}}"],
+              "path": ["checklists", "{{checklistId}}", "reopen"]
+            },
+            "description": "Mở lại Checklist đã hoàn thành. 400 nếu đang Incomplete."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Checklist Item",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/checklists/{{checklistId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["checklists", "{{checklistId}}"]
+            },
+            "description": "Hard delete (checklist.md không hỗ trợ Soft Delete riêng). Tự cập nhật lại order các Checklist còn lại."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Label",
+      "item": [
+        {
+          "name": "Create Label",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('labelId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"bug\",\n  \"color\": \"#EF4444\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/labels",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "labels"]
+            },
+            "description": "Tạo Label riêng cho Task này (không dùng chung với Task khác). Tự động lưu labelId."
+          },
+          "response": []
+        },
+        {
+          "name": "List Labels By Task",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/labels",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "labels"]
+            },
+            "description": "Danh sách Label của Task, sắp theo createdAt tăng dần."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Label",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"critical-bug\",\n  \"color\": \"#DC2626\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/labels/{{labelId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["labels", "{{labelId}}"]
+            },
+            "description": "Sửa name và/hoặc color (đều optional)."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Label",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/labels/{{labelId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["labels", "{{labelId}}"]
+            },
+            "description": "Xóa Label khỏi Task."
           },
           "response": []
         }
