@@ -9,6 +9,7 @@ import { TaskRepository } from './task.repository';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { ActivityLogService } from '../activity/activity-log.service';
 import { NotificationService } from '../notification/notification.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { TaskEntity } from './entities/task.entity';
@@ -28,6 +29,7 @@ export class TaskService {
     private readonly workspaceService: WorkspaceService,
     private readonly activityLogService: ActivityLogService,
     private readonly notificationService: NotificationService,
+    private readonly realtimeGateway: RealtimeGateway,
   ) {}
 
   async create(userId: string, dto: CreateTaskDto): Promise<TaskWithStar> {
@@ -65,6 +67,9 @@ export class TaskService {
       entityType: 'Task',
       entityId: task.id,
       action: 'task.created',
+    });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'task.created', {
+      taskId: task.id,
     });
 
     return { ...this.toTaskEntity(task), isStarred: false };
@@ -248,6 +253,11 @@ export class TaskService {
       entityId: taskId,
       action: isMovingColumn || isReordering ? 'task.moved' : 'task.updated',
     });
+    this.realtimeGateway.emitToWorkspace(
+      workspaceId,
+      isMovingColumn || isReordering ? 'task.moved' : 'task.updated',
+      { taskId },
+    );
 
     for (const recipientId of newlyAssignedIds) {
       await this.notificationService.notify({
@@ -283,6 +293,9 @@ export class TaskService {
       entityType: 'Task',
       entityId: taskId,
       action: 'task.deleted',
+    });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'task.deleted', {
+      taskId,
     });
   }
 
@@ -328,6 +341,9 @@ export class TaskService {
       entityType: 'Task',
       entityId: taskId,
       action: 'task.restored',
+    });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'task.restored', {
+      taskId,
     });
 
     return { ...this.toTaskEntity(restored), isStarred: false };

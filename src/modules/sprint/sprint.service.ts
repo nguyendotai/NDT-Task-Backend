@@ -14,6 +14,7 @@ import { SprintRepository } from './sprint.repository';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { ActivityLogService } from '../activity/activity-log.service';
 import { NotificationService } from '../notification/notification.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { CreateSprintDto } from './dto/create-sprint.dto';
 import { UpdateSprintDto } from './dto/update-sprint.dto';
 import { SprintEntity } from './entities/sprint.entity';
@@ -29,6 +30,7 @@ export class SprintService {
     private readonly workspaceService: WorkspaceService,
     private readonly activityLogService: ActivityLogService,
     private readonly notificationService: NotificationService,
+    private readonly realtimeGateway: RealtimeGateway,
   ) {}
 
   async create(
@@ -157,6 +159,9 @@ export class SprintService {
       entityId: sprintId,
       action: 'sprint.started',
     });
+    this.realtimeGateway.emitToWorkspace(sprint.workspaceId, 'sprint.started', {
+      sprintId,
+    });
     await this.notifyWorkspaceMembers(sprint.workspaceId, userId, {
       type: NotificationType.SPRINT_STARTED,
       title: 'Sprint đã bắt đầu',
@@ -187,6 +192,11 @@ export class SprintService {
       entityId: sprintId,
       action: 'sprint.completed',
     });
+    this.realtimeGateway.emitToWorkspace(
+      sprint.workspaceId,
+      'sprint.completed',
+      { sprintId },
+    );
     await this.notifyWorkspaceMembers(sprint.workspaceId, userId, {
       type: NotificationType.SPRINT_COMPLETED,
       title: 'Sprint đã kết thúc',
@@ -235,6 +245,11 @@ export class SprintService {
       action: 'sprint.task_added',
       metadata: { taskId },
     });
+    this.realtimeGateway.emitToWorkspace(
+      sprint.workspaceId,
+      'sprint.task_added',
+      { sprintId, taskId },
+    );
   }
 
   async removeTask(
@@ -267,6 +282,11 @@ export class SprintService {
       action: 'sprint.task_removed',
       metadata: { taskId },
     });
+    this.realtimeGateway.emitToWorkspace(
+      sprint.workspaceId,
+      'sprint.task_removed',
+      { sprintId, taskId },
+    );
   }
 
   // ---------------------------------------------------------------------
