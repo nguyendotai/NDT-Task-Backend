@@ -9,6 +9,7 @@ import { WorkspaceRole } from '@prisma/client';
 import { ColumnRepository } from './column.repository';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { ActivityLogService } from '../activity/activity-log.service';
+import { RealtimeGateway } from '../realtime/realtime.gateway';
 import { CreateColumnDto } from './dto/create-column.dto';
 import { UpdateColumnDto } from './dto/update-column.dto';
 import { ReorderColumnsDto } from './dto/reorder-columns.dto';
@@ -34,6 +35,7 @@ export class ColumnService {
     private readonly columnRepository: ColumnRepository,
     private readonly workspaceService: WorkspaceService,
     private readonly activityLogService: ActivityLogService,
+    private readonly realtimeGateway: RealtimeGateway,
   ) {}
 
   async create(
@@ -68,6 +70,9 @@ export class ColumnService {
       entityType: 'Column',
       entityId: column.id,
       action: 'column.created',
+    });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'column.created', {
+      columnId: column.id,
     });
 
     return this.toEntity(column);
@@ -104,6 +109,9 @@ export class ColumnService {
       entityId: columnId,
       action: 'column.updated',
     });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'column.updated', {
+      columnId,
+    });
 
     return this.toEntity(updated);
   }
@@ -136,6 +144,9 @@ export class ColumnService {
       entityType: 'Column',
       entityId: columnId,
       action: 'column.deleted',
+    });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'column.deleted', {
+      columnId,
     });
   }
 
@@ -172,6 +183,7 @@ export class ColumnService {
       entityId: board.id,
       action: 'column.moved',
     });
+    this.realtimeGateway.emitToWorkspace(workspaceId, 'column.moved', {});
 
     return reordered.map((column) => this.toEntity(column));
   }

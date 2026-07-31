@@ -709,7 +709,11 @@ export class WorkspaceService {
         this.mailQueueService.enqueueSend({
           to: email,
           subject: `${inviterName} đã mời bạn tham gia Workspace "${workspaceName}" trên NDT Task`,
-          html: buildInvitationEmailHtml({ workspaceName, inviterName, inviteLink }),
+          html: buildInvitationEmailHtml({
+            workspaceName,
+            inviterName,
+            inviteLink,
+          }),
         }),
         ENQUEUE_TIMEOUT_MS,
       );
