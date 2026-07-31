@@ -18,4 +18,12 @@ export class SearchController {
   ) {
     return this.searchService.search(workspaceId, user.id, query);
   }
+
+  @Get('labels')
+  listLabels(
+    @CurrentUser() user: UserEntity,
+    @Param('workspaceId') workspaceId: string,
+  ) {
+    return this.searchService.listWorkspaceLabels(workspaceId, user.id);
+  }
 }
