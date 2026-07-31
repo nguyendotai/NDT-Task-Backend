@@ -51,6 +51,11 @@ export interface ColumnSearchResult {
   boardId: string;
 }
 
+export interface LabelFilterOption {
+  name: string;
+  color: string;
+}
+
 export interface SearchResults {
   tasks: TaskSearchResult[];
   comments: CommentSearchResult[];

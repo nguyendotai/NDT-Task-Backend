@@ -6,6 +6,7 @@ import {
   AttachmentSearchResult,
   ColumnSearchResult,
   CommentSearchResult,
+  LabelFilterOption,
   MemberSearchResult,
   SearchResults,
   SprintSearchResult,
@@ -62,6 +63,10 @@ export class SearchService {
         priority: dto.priority,
         status: dto.status,
         assigneeId: dto.assigneeId,
+        reporterId: dto.reporterId,
+        // done=true/false convert thủ công từ string (@IsBooleanString) sang
+        // boolean, đúng convention ListTasksQueryDto/task.controller.ts.
+        done: dto.done === undefined ? undefined : dto.done === 'true',
         label: dto.label,
         sprintId: dto.sprintId,
         columnId: dto.columnId,
@@ -165,6 +170,19 @@ export class SearchService {
     }
 
     return results;
+  }
+
+  // Danh sách Label distinct trong Workspace (theo tên) — phục vụ dropdown
+  // filter Label ở Frontend, vì Label hiện không dùng chung giữa các Task.
+  async listWorkspaceLabels(
+    workspaceId: string,
+    userId: string,
+  ): Promise<LabelFilterOption[]> {
+    await this.workspaceService.assertMembership(workspaceId, userId);
+    const columns =
+      await this.searchRepository.getWorkspaceColumns(workspaceId);
+    const columnIds = columns.map((column) => column.id);
+    return this.searchRepository.listDistinctLabels(columnIds);
   }
 
   // search.md #4.6: ưu tiên match đúng title/tên > match 1 phần > match
