@@ -46,9 +46,7 @@ export class NotificationService {
 
   async markAsRead(id: string, userId: string): Promise<NotificationEntity> {
     const notification = await this.getOwnedOrThrow(id, userId);
-    const updated = await this.notificationRepository.markRead(
-      notification.id,
-    );
+    const updated = await this.notificationRepository.markRead(notification.id);
     return this.toEntity(updated);
   }
 
