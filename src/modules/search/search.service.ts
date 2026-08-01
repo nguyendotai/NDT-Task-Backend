@@ -11,6 +11,7 @@ import {
   SearchResults,
   SprintSearchResult,
   TaskSearchResult,
+  WorkspaceRef,
 } from './entities/search-result.entity';
 
 const DEFAULT_LIMIT = 20;
@@ -20,6 +21,26 @@ const DEFAULT_LIMIT = 20;
 // quả liên quan nhất có thể đã bị cắt mất trước khi kịp so điểm (bug đã phát
 // hiện lúc test thật: limit=1 trả nhầm bản ghi mới nhất thay vì liên quan nhất).
 const RANKING_CANDIDATE_POOL_SIZE = 200;
+
+interface SearchColumn {
+  id: string;
+  name: string;
+  boardId: string;
+  workspaceId: string;
+}
+
+interface ScopedFinders {
+  searchMembers: (
+    query: string,
+    limit: number,
+    offset: number,
+  ) => ReturnType<SearchRepository['searchMembers']>;
+  searchSprints: (
+    query: string,
+    limit: number,
+    offset: number,
+  ) => ReturnType<SearchRepository['searchSprints']>;
+}
 
 @Injectable()
 export class SearchService {
@@ -36,7 +57,87 @@ export class SearchService {
     // search.md #5/#6: chỉ Member Active mới search được, và chỉ trong đúng
     // phạm vi Workspace đó.
     await this.workspaceService.assertMembership(workspaceId, userId);
+    const workspace =
+      await this.workspaceService.assertActiveWorkspace(workspaceId);
 
+    const rawColumns =
+      await this.searchRepository.getWorkspaceColumns(workspaceId);
+    const columns: SearchColumn[] = rawColumns.map((column) => ({
+      ...column,
+      workspaceId,
+    }));
+
+    return this.runSearch(columns, new Map([[workspaceId, workspace]]), dto, {
+      searchMembers: (query, limit, offset) =>
+        this.searchRepository.searchMembers(workspaceId, query, limit, offset),
+      searchSprints: (query, limit, offset) =>
+        this.searchRepository.searchSprints(workspaceId, query, limit, offset),
+    });
+  }
+
+  // Global Search (search.md #2): tìm xuyên suốt tất cả Workspace user đang
+  // là Member Active, mọi role — không phân biệt quyền hạn khi search.
+  async searchGlobal(
+    userId: string,
+    dto: SearchQueryDto,
+  ): Promise<SearchResults> {
+    const memberships = await this.workspaceService.listMine(userId);
+    const workspaceIds = memberships.map((membership) => membership.id);
+    const workspaceById = new Map<string, WorkspaceRef>(
+      memberships.map((membership) => [
+        membership.id,
+        {
+          id: membership.id,
+          name: membership.name,
+          avatarEmoji: membership.avatarEmoji,
+          avatarColor: membership.avatarColor,
+        },
+      ]),
+    );
+
+    const columns: SearchColumn[] =
+      await this.searchRepository.getColumnsForWorkspaces(workspaceIds);
+
+    return this.runSearch(columns, workspaceById, dto, {
+      searchMembers: (query, limit, offset) =>
+        this.searchRepository.searchMembersInWorkspaces(
+          workspaceIds,
+          query,
+          limit,
+          offset,
+        ),
+      searchSprints: (query, limit, offset) =>
+        this.searchRepository.searchSprintsInWorkspaces(
+          workspaceIds,
+          query,
+          limit,
+          offset,
+        ),
+    });
+  }
+
+  // Danh sách Label distinct trong Workspace (theo tên) — phục vụ dropdown
+  // filter Label ở Frontend, vì Label hiện không dùng chung giữa các Task.
+  async listWorkspaceLabels(
+    workspaceId: string,
+    userId: string,
+  ): Promise<LabelFilterOption[]> {
+    await this.workspaceService.assertMembership(workspaceId, userId);
+    const columns =
+      await this.searchRepository.getWorkspaceColumns(workspaceId);
+    const columnIds = columns.map((column) => column.id);
+    return this.searchRepository.listDistinctLabels(columnIds);
+  }
+
+  // Lõi dùng chung cho search() (1 Workspace) và searchGlobal() (nhiều
+  // Workspace) — chỉ khác nhau ở nguồn `columns`/`workspaceById` và cách
+  // Member/Sprint được truy vấn (đơn hay gộp `in: [...]`).
+  private async runSearch(
+    columns: SearchColumn[],
+    workspaceById: Map<string, WorkspaceRef>,
+    dto: SearchQueryDto,
+    scoped: ScopedFinders,
+  ): Promise<SearchResults> {
     const query = dto.q.trim();
     const limit = dto.limit ?? DEFAULT_LIMIT;
     const offset = dto.offset ?? 0;
@@ -54,9 +155,17 @@ export class SearchService {
       columns: [],
     };
 
-    const columns =
-      await this.searchRepository.getWorkspaceColumns(workspaceId);
     const columnIds = columns.map((column) => column.id);
+    const columnWorkspaceMap = new Map(
+      columns.map((column) => [column.id, column.workspaceId]),
+    );
+    const getWorkspaceRef = (workspaceId: string): WorkspaceRef => {
+      const ref = workspaceById.get(workspaceId);
+      if (!ref) {
+        throw new Error(`Không tìm thấy Workspace ref cho ${workspaceId}`);
+      }
+      return ref;
+    };
 
     if (wantsAll || dto.type === 'task') {
       const filters: TaskSearchFilters = {
@@ -85,7 +194,10 @@ export class SearchService {
         taskSkipsRanking ? offset : 0,
       );
       const ranked = this.rank(tasks, taskSkipsRanking, (task) => ({
-        entity: this.toTaskEntity(task),
+        entity: this.toTaskEntity(
+          task,
+          getWorkspaceRef(columnWorkspaceMap.get(task.columnId) as string),
+        ),
         score:
           this.scoreMatch(task.title, query) * 10 +
           this.scoreMatch(task.description, query),
@@ -96,8 +208,15 @@ export class SearchService {
     }
 
     if (wantsAll || dto.type === 'comment' || dto.type === 'attachment') {
-      const taskIds =
-        await this.searchRepository.getTaskIdsForColumns(columnIds);
+      const tasksForColumns =
+        await this.searchRepository.getTasksForColumns(columnIds);
+      const taskIds = tasksForColumns.map((task) => task.id);
+      const taskWorkspaceMap = new Map(
+        tasksForColumns.map((task) => [
+          task.id,
+          columnWorkspaceMap.get(task.columnId) as string,
+        ]),
+      );
 
       if (wantsAll || dto.type === 'comment') {
         const comments = await this.searchRepository.searchComments(
@@ -107,7 +226,10 @@ export class SearchService {
           0,
         );
         const ranked = this.rank(comments, false, (comment) => ({
-          entity: this.toCommentEntity(comment),
+          entity: this.toCommentEntity(
+            comment,
+            getWorkspaceRef(taskWorkspaceMap.get(comment.taskId) as string),
+          ),
           score: this.scoreMatch(comment.content, query),
         }));
         results.comments = ranked.slice(offset, offset + limit);
@@ -121,7 +243,10 @@ export class SearchService {
           0,
         );
         const ranked = this.rank(attachments, false, (attachment) => ({
-          entity: this.toAttachmentEntity(attachment),
+          entity: this.toAttachmentEntity(
+            attachment,
+            getWorkspaceRef(taskWorkspaceMap.get(attachment.taskId) as string),
+          ),
           score:
             this.scoreMatch(attachment.fileName, query) * 10 +
             this.scoreMatch(attachment.mimeType, query),
@@ -131,14 +256,16 @@ export class SearchService {
     }
 
     if (wantsAll || dto.type === 'member') {
-      const members = await this.searchRepository.searchMembers(
-        workspaceId,
+      const members = await scoped.searchMembers(
         query,
         RANKING_CANDIDATE_POOL_SIZE,
         0,
       );
       const ranked = this.rank(members, false, (member) => ({
-        entity: this.toMemberEntity(member),
+        entity: this.toMemberEntity(
+          member,
+          getWorkspaceRef(member.workspaceId),
+        ),
         score:
           this.scoreMatch(member.user.name, query) * 10 +
           this.scoreMatch(member.user.email, query),
@@ -147,14 +274,16 @@ export class SearchService {
     }
 
     if (wantsAll || dto.type === 'sprint') {
-      const sprints = await this.searchRepository.searchSprints(
-        workspaceId,
+      const sprints = await scoped.searchSprints(
         query,
         RANKING_CANDIDATE_POOL_SIZE,
         0,
       );
       const ranked = this.rank(sprints, false, (sprint) => ({
-        entity: this.toSprintEntity(sprint),
+        entity: this.toSprintEntity(
+          sprint,
+          getWorkspaceRef(sprint.workspaceId),
+        ),
         score: this.scoreMatch(sprint.name, query) * 10,
       }));
       results.sprints = ranked.slice(offset, offset + limit);
@@ -165,26 +294,16 @@ export class SearchService {
         column.name.toLowerCase().includes(query.toLowerCase()),
       );
       const ranked = this.rank(matchedColumns, false, (column) => ({
-        entity: this.toColumnEntity(column),
+        entity: this.toColumnEntity(
+          column,
+          getWorkspaceRef(column.workspaceId),
+        ),
         score: this.scoreMatch(column.name, query),
       }));
       results.columns = ranked.slice(offset, offset + limit);
     }
 
     return results;
-  }
-
-  // Danh sách Label distinct trong Workspace (theo tên) — phục vụ dropdown
-  // filter Label ở Frontend, vì Label hiện không dùng chung giữa các Task.
-  async listWorkspaceLabels(
-    workspaceId: string,
-    userId: string,
-  ): Promise<LabelFilterOption[]> {
-    await this.workspaceService.assertMembership(workspaceId, userId);
-    const columns =
-      await this.searchRepository.getWorkspaceColumns(workspaceId);
-    const columnIds = columns.map((column) => column.id);
-    return this.searchRepository.listDistinctLabels(columnIds);
   }
 
   // search.md #4.6: ưu tiên match đúng title/tên > match 1 phần > match
@@ -210,18 +329,21 @@ export class SearchService {
     return 0;
   }
 
-  private toTaskEntity(task: {
-    id: string;
-    title: string;
-    description: string | null;
-    status: string;
-    priority: TaskSearchResult['priority'];
-    columnId: string;
-    sprintId: string | null;
-    dueDate: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }): TaskSearchResult {
+  private toTaskEntity(
+    task: {
+      id: string;
+      title: string;
+      description: string | null;
+      status: string;
+      priority: TaskSearchResult['priority'];
+      columnId: string;
+      sprintId: string | null;
+      dueDate: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    workspace: WorkspaceRef,
+  ): TaskSearchResult {
     return {
       id: task.id,
       title: task.title,
@@ -233,77 +355,93 @@ export class SearchService {
       dueDate: task.dueDate,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
+      workspace,
     };
   }
 
-  private toCommentEntity(comment: {
-    id: string;
-    taskId: string;
-    authorId: string;
-    content: string;
-    createdAt: Date;
-  }): CommentSearchResult {
+  private toCommentEntity(
+    comment: {
+      id: string;
+      taskId: string;
+      authorId: string;
+      content: string;
+      createdAt: Date;
+    },
+    workspace: WorkspaceRef,
+  ): CommentSearchResult {
     return {
       id: comment.id,
       taskId: comment.taskId,
       authorId: comment.authorId,
       content: comment.content,
       createdAt: comment.createdAt,
+      workspace,
     };
   }
 
-  private toAttachmentEntity(attachment: {
-    id: string;
-    taskId: string;
-    fileName: string;
-    mimeType: string;
-    createdAt: Date;
-  }): AttachmentSearchResult {
+  private toAttachmentEntity(
+    attachment: {
+      id: string;
+      taskId: string;
+      fileName: string;
+      mimeType: string;
+      createdAt: Date;
+    },
+    workspace: WorkspaceRef,
+  ): AttachmentSearchResult {
     return {
       id: attachment.id,
       taskId: attachment.taskId,
       fileName: attachment.fileName,
       mimeType: attachment.mimeType,
       createdAt: attachment.createdAt,
+      workspace,
     };
   }
 
-  private toMemberEntity(member: {
-    id: string;
-    userId: string;
-    role: string;
-    user: { name: string; email: string };
-  }): MemberSearchResult {
+  private toMemberEntity(
+    member: {
+      id: string;
+      userId: string;
+      role: string;
+      user: { name: string; email: string };
+    },
+    workspace: WorkspaceRef,
+  ): MemberSearchResult {
     return {
       id: member.id,
       userId: member.userId,
       name: member.user.name,
       email: member.user.email,
       role: member.role,
+      workspace,
     };
   }
 
-  private toSprintEntity(sprint: {
-    id: string;
-    name: string;
-    status: string;
-    startDate: Date;
-    endDate: Date;
-  }): SprintSearchResult {
+  private toSprintEntity(
+    sprint: {
+      id: string;
+      name: string;
+      status: string;
+      startDate: Date;
+      endDate: Date;
+    },
+    workspace: WorkspaceRef,
+  ): SprintSearchResult {
     return {
       id: sprint.id,
       name: sprint.name,
       status: sprint.status,
       startDate: sprint.startDate,
       endDate: sprint.endDate,
+      workspace,
     };
   }
 
-  private toColumnEntity(column: {
-    id: string;
-    name: string;
-    boardId: string;
-  }): ColumnSearchResult {
-    return column;
+  private toColumnEntity(
+    column: { id: string; name: string; boardId: string },
+    workspace: WorkspaceRef,
+  ): ColumnSearchResult {
+    return { ...column, workspace };
   }
 }

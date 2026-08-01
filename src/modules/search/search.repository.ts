@@ -38,13 +38,46 @@ export class SearchRepository {
     });
   }
 
-  async getTaskIdsForColumns(columnIds: string[]): Promise<string[]> {
-    if (columnIds.length === 0) return [];
-    const tasks = await this.prisma.task.findMany({
-      where: { columnId: { in: columnIds }, deletedAt: null },
-      select: { id: true },
+  // Global Search (search.md #2): gộp columnIds từ nhiều Workspace cùng lúc.
+  // Board.workspaceId là @unique nên 1 Workspace tối đa 1 Board — an toàn khi
+  // gộp bằng 1 query duy nhất thay vì loop N+1 theo từng Workspace.
+  async getColumnsForWorkspaces(
+    workspaceIds: string[],
+  ): Promise<
+    { id: string; name: string; boardId: string; workspaceId: string }[]
+  > {
+    if (workspaceIds.length === 0) return [];
+    const boards = await this.prisma.board.findMany({
+      where: { workspaceId: { in: workspaceIds }, deletedAt: null },
+      select: { id: true, workspaceId: true },
     });
-    return tasks.map((task) => task.id);
+    if (boards.length === 0) return [];
+    const workspaceIdByBoardId = new Map(
+      boards.map((board) => [board.id, board.workspaceId]),
+    );
+    const columns = await this.prisma.column.findMany({
+      where: {
+        boardId: { in: boards.map((board) => board.id) },
+        deletedAt: null,
+      },
+      select: { id: true, name: true, boardId: true },
+    });
+    return columns.map((column) => ({
+      ...column,
+      workspaceId: workspaceIdByBoardId.get(column.boardId) as string,
+    }));
+  }
+
+  // Trả kèm columnId để Service tự suy ra workspaceId nguồn của từng Task khi
+  // gắn nhãn Comment/Attachment ở Global Search (search.md #2).
+  async getTasksForColumns(
+    columnIds: string[],
+  ): Promise<{ id: string; columnId: string }[]> {
+    if (columnIds.length === 0) return [];
+    return this.prisma.task.findMany({
+      where: { columnId: { in: columnIds }, deletedAt: null },
+      select: { id: true, columnId: true },
+    });
   }
 
   async searchTasks(
@@ -180,6 +213,32 @@ export class SearchRepository {
     });
   }
 
+  // Global Search: giống searchMembers nhưng gộp nhiều Workspace bằng `in`.
+  async searchMembersInWorkspaces(
+    workspaceIds: string[],
+    query: string,
+    limit: number,
+    offset: number,
+  ) {
+    if (workspaceIds.length === 0) return [];
+    return this.prisma.workspaceMember.findMany({
+      where: {
+        workspaceId: { in: workspaceIds },
+        deletedAt: null,
+        user: {
+          OR: [
+            { name: { contains: query, ...CI } },
+            { email: { contains: query, ...CI } },
+          ],
+        },
+      },
+      include: { user: true },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: offset,
+    });
+  }
+
   async searchSprints(
     workspaceId: string,
     query: string,
@@ -195,6 +254,35 @@ export class SearchRepository {
     return this.prisma.sprint.findMany({
       where: {
         workspaceId,
+        deletedAt: null,
+        OR: [
+          { name: { contains: query, ...CI } },
+          ...(matchedStatus ? [{ status: matchedStatus }] : []),
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: offset,
+    });
+  }
+
+  // Global Search: giống searchSprints nhưng gộp nhiều Workspace bằng `in`.
+  async searchSprintsInWorkspaces(
+    workspaceIds: string[],
+    query: string,
+    limit: number,
+    offset: number,
+  ) {
+    if (workspaceIds.length === 0) return [];
+    const upperQuery = query.toUpperCase();
+    const matchedStatus = (Object.values(SprintStatus) as string[]).includes(
+      upperQuery,
+    )
+      ? (upperQuery as SprintStatus)
+      : undefined;
+    return this.prisma.sprint.findMany({
+      where: {
+        workspaceId: { in: workspaceIds },
         deletedAt: null,
         OR: [
           { name: { contains: query, ...CI } },

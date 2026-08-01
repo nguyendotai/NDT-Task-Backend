@@ -1508,7 +1508,7 @@
       "name": "Search",
       "item": [
         {
-          "name": "Global Search",
+          "name": "Search All Types (in Workspace)",
           "request": {
             "method": "GET",
             "url": {
@@ -1517,7 +1517,7 @@
               "path": ["workspaces", "{{workspaceId}}", "search"],
               "query": [{ "key": "q", "value": "login" }]
             },
-            "description": "Tìm trên tất cả loại (Task/Comment/Attachment/Member/Sprint/Column) trong Workspace. Chỉ Member Active mới search được (403 nếu không phải thành viên)."
+            "description": "Tìm trên tất cả loại (Task/Comment/Attachment/Member/Sprint/Column) trong đúng 1 Workspace. Chỉ Member Active mới search được (403 nếu không phải thành viên). Khác với folder \"Global Search\" (tìm xuyên suốt tất cả Workspace)."
           },
           "response": []
         },
@@ -1607,6 +1607,43 @@
               ]
             },
             "description": "Tìm theo name/email thành viên trong Workspace."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Global Search",
+      "item": [
+        {
+          "name": "Search All My Workspaces",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/search?q=login",
+              "host": ["{{baseUrl}}"],
+              "path": ["search"],
+              "query": [{ "key": "q", "value": "login" }]
+            },
+            "description": "Tìm xuyên suốt tất cả Workspace mà user đang là Member Active (mọi role), không cần workspaceId trong path. Mỗi item trong response có thêm field workspace {id, name, avatarEmoji, avatarColor} để phân biệt nguồn."
+          },
+          "response": []
+        },
+        {
+          "name": "Search Task (across Workspaces)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/search?q=login&type=task&assigneeId={{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["search"],
+              "query": [
+                { "key": "q", "value": "login" },
+                { "key": "type", "value": "task" },
+                { "key": "assigneeId", "value": "{{userId}}" }
+              ]
+            },
+            "description": "Chỉ tìm Task, hỗ trợ đủ filter giống GET /workspaces/:workspaceId/search (priority/status/assigneeId/reporterId/done/label/sprintId/columnId/dateFrom-dateTo/updatedFrom-updatedTo/sortBy/order) nhưng gộp trên tất cả Workspace user là Member."
           },
           "response": []
         }
