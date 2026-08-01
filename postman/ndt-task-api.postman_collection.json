@@ -691,7 +691,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"columnId\": \"{{columnId}}\",\n  \"title\": \"Sample Task\",\n  \"description\": \"Created from Postman\",\n  \"priority\": \"MEDIUM\",\n  \"startDate\": \"2026-08-01T00:00:00.000Z\",\n  \"dueDate\": \"2026-08-15T00:00:00.000Z\",\n  \"storyPoints\": 3\n}"
+              "raw": "{\n  \"columnId\": \"{{columnId}}\",\n  \"title\": \"Sample Task\",\n  \"description\": \"Created from Postman\",\n  \"priority\": \"MEDIUM\",\n  \"type\": \"TASK\",\n  \"startDate\": \"2026-08-01T00:00:00.000Z\",\n  \"dueDate\": \"2026-08-15T00:00:00.000Z\",\n  \"storyPoints\": 3\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/tasks",
@@ -770,7 +770,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Sample Task (updated)\",\n  \"storyPoints\": 5,\n  \"assigneeIds\": []\n}"
+              "raw": "{\n  \"title\": \"Sample Task (updated)\",\n  \"storyPoints\": 5,\n  \"type\": \"BUG\",\n  \"assigneeIds\": []\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/tasks/{{taskId}}",

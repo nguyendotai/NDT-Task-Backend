@@ -7,7 +7,7 @@ import {
   IsUUID,
   Min,
 } from 'class-validator';
-import { TaskPriority } from '@prisma/client';
+import { TaskPriority, TaskType } from '@prisma/client';
 
 export class CreateTaskDto {
   @IsUUID()
@@ -23,6 +23,12 @@ export class CreateTaskDto {
   @IsOptional()
   @IsEnum(TaskPriority)
   priority?: TaskPriority;
+
+  // Bổ sung theo yêu cầu (không thuộc field chuẩn task.md) — mặc định TASK
+  // nếu không truyền, dùng cho Filter Board/List.
+  @IsOptional()
+  @IsEnum(TaskType)
+  type?: TaskType;
 
   @IsOptional()
   @IsDateString()

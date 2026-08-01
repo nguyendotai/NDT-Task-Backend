@@ -123,6 +123,10 @@ model Workspace {
   // Chỉ lưu trạng thái, CHƯA ảnh hưởng access control thực tế (đổi Permission
   // là phạm vi lớn hơn, cần xác nhận riêng).
   visibility  WorkspaceVisibility @default(PRIVATE)
+  // Bộ đếm cấp Task.taskNumber tăng dần riêng theo Workspace này (mã Task
+  // hiển thị "{shortCode}-{taskNumber}") — tăng atomic lúc tạo Task mới, xem
+  // task.repository.ts create().
+  taskCounter Int           @default(0)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   deletedAt   DateTime?
@@ -270,6 +274,16 @@ enum TaskPriority {
   HIGH
 }
 
+// Bổ sung theo yêu cầu (không thuộc field chuẩn task.md) — phân loại Task
+// dùng cho Filter Board/List, mặc định TASK cho Task tạo theo cách thông
+// thường.
+enum TaskType {
+  TASK
+  BUG
+  STORY
+  EPIC
+}
+
 model Task {
   id           String       @id @default(uuid()) @map("_id")
   columnId     String
@@ -277,6 +291,12 @@ model Task {
   title        String
   description  String?
   priority     TaskPriority @default(MEDIUM)
+  type         TaskType     @default(TASK)
+  // Mã Task hiển thị dạng "{Workspace.shortCode}-{taskNumber}" (FE tự ghép),
+  // tăng dần riêng theo từng Workspace — cấp bằng Workspace.taskCounter lúc
+  // tạo Task (xem task.repository.ts create()), không phải auto-increment
+  // của MongoDB (không hỗ trợ native).
+  taskNumber   Int
   // task.md #4: Status không còn là enum cố định — luôn mirror đúng tên
   // Column hiện tại (mỗi Column tự là 1 "trạng thái" riêng, không giới hạn
   // 3 giá trị cũ). Luôn được service gán lại mỗi khi đổi Column, không cho
@@ -316,6 +336,7 @@ model Task {
   @@index([assigneeIds])
   @@index([status])
   @@index([dueDate])
+  @@index([type])
   @@map("tasks")
 }
 

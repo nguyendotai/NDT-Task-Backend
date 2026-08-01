@@ -1,16 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, TaskPriority } from '@prisma/client';
+import { Prisma, TaskPriority, TaskType } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
-// Dùng chung cho mọi query trả Task ra ngoài — nhúng sẵn workspaceId/name qua
-// chuỗi quan hệ Task -> Column -> Board -> Workspace để tránh N+1 lookup ở
-// Service khi cần hiển thị "Task thuộc Workspace nào" (Dashboard).
+// Dùng chung cho mọi query trả Task ra ngoài — nhúng sẵn workspaceId/name/
+// shortCode qua chuỗi quan hệ Task -> Column -> Board -> Workspace để tránh
+// N+1 lookup ở Service khi cần hiển thị "Task thuộc Workspace nào" (Dashboard)
+// hoặc ghép mã Task "{shortCode}-{taskNumber}" ở Frontend.
 const WORKSPACE_CONTEXT_INCLUDE = {
   column: {
     include: {
       board: {
         include: {
-          workspace: { select: { id: true, name: true } },
+          workspace: { select: { id: true, name: true, shortCode: true } },
         },
       },
     },
@@ -32,11 +33,17 @@ export class TaskRepository {
     return this.prisma.task.count({ where: { columnId, deletedAt: null } });
   }
 
+  // Bọc trong Transaction (backend/CLAUDE.md mục 3 — bắt buộc khi ghi/sửa
+  // trên nhiều collection): tăng Workspace.taskCounter atomic rồi dùng chính
+  // giá trị mới đó làm Task.taskNumber, đảm bảo không trùng số dù nhiều
+  // request tạo Task cùng lúc trên cùng 1 Workspace.
   create(data: {
+    workspaceId: string;
     columnId: string;
     title: string;
     description?: string;
     priority?: TaskPriority;
+    type?: TaskType;
     status: string;
     startDate?: Date;
     dueDate?: Date;
@@ -44,18 +51,28 @@ export class TaskRepository {
     createdBy: string;
     storyPoints?: number;
   }) {
-    // Ghi tường minh sprintId/backlogOrder/assigneeIds/deletedAt/deletedBy = null:
-    // Prisma+MongoDB không match filter nếu field hoàn toàn không tồn tại.
-    return this.prisma.task.create({
-      data: {
-        ...data,
-        sprintId: null,
-        backlogOrder: null,
-        assigneeIds: [],
-        deletedAt: null,
-        deletedBy: null,
-      },
-      include: WORKSPACE_CONTEXT_INCLUDE,
+    const { workspaceId, type, ...taskData } = data;
+    return this.prisma.$transaction(async (tx) => {
+      const workspace = await tx.workspace.update({
+        where: { id: workspaceId },
+        data: { taskCounter: { increment: 1 } },
+        select: { taskCounter: true },
+      });
+      // Ghi tường minh sprintId/backlogOrder/assigneeIds/deletedAt/deletedBy = null:
+      // Prisma+MongoDB không match filter nếu field hoàn toàn không tồn tại.
+      return tx.task.create({
+        data: {
+          ...taskData,
+          type: type ?? TaskType.TASK,
+          taskNumber: workspace.taskCounter,
+          sprintId: null,
+          backlogOrder: null,
+          assigneeIds: [],
+          deletedAt: null,
+          deletedBy: null,
+        },
+        include: WORKSPACE_CONTEXT_INCLUDE,
+      });
     });
   }
 
@@ -79,6 +96,7 @@ export class TaskRepository {
       title?: string;
       description?: string;
       priority?: TaskPriority;
+      type?: TaskType;
       status?: string;
       startDate?: Date | null;
       dueDate?: Date;
