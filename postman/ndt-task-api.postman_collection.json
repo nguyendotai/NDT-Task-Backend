@@ -1630,6 +1630,23 @@
           "response": []
         },
         {
+          "name": "Browse/Filter-only (no q)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/search?type=task&done=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["search"],
+              "query": [
+                { "key": "type", "value": "task" },
+                { "key": "done", "value": "false" }
+              ]
+            },
+            "description": "q không bắt buộc — bỏ trống để lọc theo filter khác (done/assigneeId/label/sprintId/updatedFrom-updatedTo...) mà không cần gõ từ khóa. Áp dụng cho cả GET /search và GET /workspaces/:workspaceId/search."
+          },
+          "response": []
+        },
+        {
           "name": "Search Task (across Workspaces)",
           "request": {
             "method": "GET",

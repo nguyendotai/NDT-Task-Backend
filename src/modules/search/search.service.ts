@@ -138,7 +138,9 @@ export class SearchService {
     dto: SearchQueryDto,
     scoped: ScopedFinders,
   ): Promise<SearchResults> {
-    const query = dto.q.trim();
+    // search.md #6: q rỗng hợp lệ (browse/filter-only) — contains('') khớp
+    // tất cả, kết quả khi đó phụ thuộc hoàn toàn vào các filter khác.
+    const query = (dto.q ?? '').trim();
     const limit = dto.limit ?? DEFAULT_LIMIT;
     const offset = dto.offset ?? 0;
     const wantsAll = !dto.type;

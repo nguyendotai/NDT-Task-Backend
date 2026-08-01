@@ -9,7 +9,6 @@ import {
   Max,
   MaxLength,
   Min,
-  MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -26,11 +25,12 @@ export type SearchEntityType = (typeof SEARCH_ENTITY_TYPES)[number];
 const SORT_FIELDS = ['createdAt', 'updatedAt', 'priority', 'dueDate'] as const;
 
 export class SearchQueryDto {
-  // search.md #6: query không rỗng, tối đa 255 ký tự.
+  // search.md #6: không bắt buộc — cho phép rỗng để hỗ trợ browse/filter-only
+  // (lọc theo Assignee/Status/Label/Sprint/Last updated... không cần từ khóa).
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(255)
-  q: string;
+  q?: string;
 
   // search.md #7: bỏ trống = Global Search (mọi entity); có type = chỉ tìm
   // đúng loại đó (Task Search).
