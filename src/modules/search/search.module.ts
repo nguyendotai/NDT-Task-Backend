@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { SearchController } from './search.controller';
+import { GlobalSearchController } from './global-search.controller';
 import { SearchService } from './search.service';
 import { SearchRepository } from './search.repository';
 import { WorkspaceModule } from '../workspace/workspace.module';
 
 @Module({
   imports: [WorkspaceModule],
-  controllers: [SearchController],
+  controllers: [SearchController, GlobalSearchController],
   providers: [SearchService, SearchRepository],
 })
 export class SearchModule {}
