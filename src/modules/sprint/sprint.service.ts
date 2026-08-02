@@ -215,10 +215,11 @@ export class SprintService {
     const sprint = await this.getActiveSprintOrThrow(sprintId);
     await this.assertManageRole(sprint.workspaceId, userId);
 
-    // sprint.md #5.6: chỉ thêm được khi Sprint đang Planned.
-    if (sprint.status !== SprintStatus.PLANNED) {
+    // sprint.md #5.6: thêm được khi Sprint đang Planned hoặc Active, chỉ
+    // chặn khi đã Completed.
+    if (sprint.status === SprintStatus.COMPLETED) {
       throw new BadRequestException(
-        'Chỉ có thể thêm Task vào Sprint đang ở trạng thái Planned',
+        'Không thể thêm Task vào Sprint đã Completed',
       );
     }
 
@@ -260,10 +261,11 @@ export class SprintService {
     const sprint = await this.getActiveSprintOrThrow(sprintId);
     await this.assertManageRole(sprint.workspaceId, userId);
 
-    // sprint.md #5.7: chỉ xóa được khi Sprint đang Planned.
-    if (sprint.status !== SprintStatus.PLANNED) {
+    // sprint.md #5.7: xóa được khi Sprint đang Planned hoặc Active, chỉ
+    // chặn khi đã Completed.
+    if (sprint.status === SprintStatus.COMPLETED) {
       throw new BadRequestException(
-        'Chỉ có thể xóa Task khỏi Sprint đang ở trạng thái Planned',
+        'Không thể xóa Task khỏi Sprint đã Completed',
       );
     }
 
