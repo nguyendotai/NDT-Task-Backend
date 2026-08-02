@@ -1047,7 +1047,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["sprints", "{{sprintId}}", "tasks"]
             },
-            "description": "Chỉ Owner/Admin, chỉ khi Sprint đang Planned. Task phải thuộc cùng Workspace và chưa thuộc Sprint nào khác (lấy từ Product Backlog)."
+            "description": "Chỉ Owner/Admin, khi Sprint đang Planned hoặc Active (400 nếu đã Completed). Task phải thuộc cùng Workspace và chưa thuộc Sprint nào khác (lấy từ Product Backlog)."
           },
           "response": []
         },
@@ -1060,7 +1060,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["sprints", "{{sprintId}}", "tasks", "{{taskId}}"]
             },
-            "description": "Chỉ Owner/Admin, chỉ khi Sprint đang Planned. Task quay về Product Backlog sau khi xóa."
+            "description": "Chỉ Owner/Admin, khi Sprint đang Planned hoặc Active (400 nếu đã Completed). Task quay về Product Backlog sau khi xóa."
           },
           "response": []
         }
