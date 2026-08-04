@@ -88,6 +88,40 @@
           "response": []
         },
         {
+          "name": "Login with Google",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('accessToken', body.data.accessToken);",
+                  "  pm.collectionVariables.set('userId', body.data.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idToken\": \"<paste-real-google-id-token-here>\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/google",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "google"]
+            },
+            "description": "idToken phải là ID Token thật lấy từ nút Sign in with Google ở Frontend (mở DevTools Network lúc bấm nút để lấy) — không tự sinh được qua Postman vì cần verify chữ ký bằng public key thật của Google. Account linking theo email nếu đã có tài khoản Email+Password trùng email."
+          },
+          "response": []
+        },
+        {
           "name": "Logout",
           "request": {
             "method": "POST",

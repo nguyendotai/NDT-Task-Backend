@@ -27,6 +27,7 @@ import jwtConfig from './config/jwt.config';
 import redisConfig from './config/redis.config';
 import mailConfig from './config/mail.config';
 import cloudinaryConfig from './config/cloudinary.config';
+import googleConfig from './config/google.config';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
 
 @Module({
@@ -40,6 +41,7 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
         redisConfig,
         mailConfig,
         cloudinaryConfig,
+        googleConfig,
       ],
     }),
     JwtModule.registerAsync({
