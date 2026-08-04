@@ -53,6 +53,16 @@ export class AuthRepository {
     });
   }
 
+  // auth.md #3.2: đồng bộ avatar theo Google mỗi lần đăng nhập qua Google (kể
+  // cả tài khoản đã liên kết từ trước) — clear avatarPublicId vì ảnh không còn
+  // do Cloudinary quản lý nữa (khác luồng POST /users/me/avatar).
+  updateAvatarFromGoogle(userId: string, avatarUrl: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl, avatarPublicId: null },
+    });
+  }
+
   updateUserPassword(userId: string, passwordHash: string) {
     return this.prisma.user.update({
       where: { id: userId },

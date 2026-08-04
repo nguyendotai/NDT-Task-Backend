@@ -132,6 +132,15 @@ export class AuthService {
       }
     }
 
+    // auth.md #3.2: mỗi lần đăng nhập Google đều đồng bộ avatar mới nhất từ
+    // Google (kể cả tài khoản đã liên kết từ trước) — theo yêu cầu của bạn.
+    if (payload.picture && payload.picture !== user.avatarUrl) {
+      user = await this.authRepository.updateAvatarFromGoogle(
+        user.id,
+        payload.picture,
+      );
+    }
+
     const tokens = await this.issueTokens(user.id, meta);
     return { ...tokens, user: this.toUserEntity(user) };
   }
