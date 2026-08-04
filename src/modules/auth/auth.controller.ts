@@ -17,6 +17,7 @@ import { UserEntity } from '../user/entities/user.entity';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { GoogleAuthDto } from './dto/google-auth.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
@@ -45,6 +46,20 @@ export class AuthController {
   ) {
     const { accessToken, refreshToken, refreshTokenExpiresAt, user } =
       await this.authService.login(dto, this.extractMeta(req));
+
+    this.setRefreshTokenCookie(res, refreshToken, refreshTokenExpiresAt);
+    return { accessToken, user };
+  }
+
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  async googleLogin(
+    @Body() dto: GoogleAuthDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { accessToken, refreshToken, refreshTokenExpiresAt, user } =
+      await this.authService.googleLogin(dto, this.extractMeta(req));
 
     this.setRefreshTokenCookie(res, refreshToken, refreshTokenExpiresAt);
     return { accessToken, user };

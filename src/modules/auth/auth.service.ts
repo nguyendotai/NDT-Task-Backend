@@ -9,6 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcrypt';
+import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 import ms, { type StringValue } from 'ms';
 import { AuthRepository } from './auth.repository';
 import { MailQueueService } from '../../config/mail-queue.service';
@@ -18,6 +19,7 @@ import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { GoogleAuthDto } from './dto/google-auth.dto';
 import { UserEntity } from '../user/entities/user.entity';
 
 const BCRYPT_SALT_ROUNDS = 10;
@@ -33,13 +35,18 @@ export interface AuthTokens {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private readonly googleClient: OAuth2Client;
 
   constructor(
     private readonly authRepository: AuthRepository,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly mailQueueService: MailQueueService,
-  ) {}
+  ) {
+    this.googleClient = new OAuth2Client(
+      this.configService.get<string>('google.clientId'),
+    );
+  }
 
   async register(dto: RegisterDto): Promise<UserEntity> {
     const existing = await this.authRepository.findUserByEmail(dto.email);
@@ -62,12 +69,67 @@ export class AuthService {
     meta: { userAgent?: string; ipAddress?: string },
   ): Promise<AuthTokens & { user: UserEntity }> {
     const user = await this.authRepository.findUserByEmail(dto.email);
-    const isPasswordValid = user
+    // auth.md #3.1: User tạo qua Google có thể chưa có passwordHash — không
+    // so sánh compare(password, null) (bcrypt sẽ throw), coi như sai luôn.
+    const isPasswordValid = user?.passwordHash
       ? await compare(dto.password, user.passwordHash)
       : false;
 
     if (!user || !isPasswordValid) {
       throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
+    }
+
+    const tokens = await this.issueTokens(user.id, meta);
+    return { ...tokens, user: this.toUserEntity(user) };
+  }
+
+  // auth.md #3.2: verify ID Token thật từ Google Identity Services (Frontend),
+  // account linking theo email — không cần Client Secret, chỉ verify bằng
+  // public key của Google qua GOOGLE_CLIENT_ID (audience).
+  async googleLogin(
+    dto: GoogleAuthDto,
+    meta: { userAgent?: string; ipAddress?: string },
+  ): Promise<AuthTokens & { user: UserEntity }> {
+    const clientId = this.configService.get<string>('google.clientId');
+    let payload: TokenPayload | undefined;
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken: dto.idToken,
+        audience: clientId,
+      });
+      payload = ticket.getPayload();
+    } catch {
+      throw new UnauthorizedException('ID Token Google không hợp lệ');
+    }
+
+    if (!payload?.sub || !payload.email) {
+      throw new UnauthorizedException('ID Token Google không hợp lệ');
+    }
+    if (!payload.email_verified) {
+      throw new UnauthorizedException('Email Google chưa được xác thực');
+    }
+
+    let user = await this.authRepository.findUserByGoogleId(payload.sub);
+
+    if (!user) {
+      const existingByEmail = await this.authRepository.findUserByEmail(
+        payload.email,
+      );
+      if (existingByEmail) {
+        // Account linking: email đã có tài khoản Email+Password — gắn Google
+        // vào tài khoản đó, không tạo User mới, giữ nguyên passwordHash cũ.
+        user = await this.authRepository.linkGoogleId(
+          existingByEmail.id,
+          payload.sub,
+        );
+      } else {
+        user = await this.authRepository.createUserFromGoogle({
+          email: payload.email,
+          googleId: payload.sub,
+          name: payload.name ?? payload.email,
+          avatarUrl: payload.picture,
+        });
+      }
     }
 
     const tokens = await this.issueTokens(user.id, meta);
@@ -172,6 +234,13 @@ export class AuthService {
     const user = await this.authRepository.findUserById(userId);
     if (!user) {
       throw new UnauthorizedException('Không tìm thấy tài khoản');
+    }
+    if (!user.passwordHash) {
+      // auth.md #3.1: tài khoản chỉ đăng nhập qua Google, chưa có mật khẩu
+      // để "đổi" — tự đặt mật khẩu lần đầu chưa được hỗ trợ (ngoài phạm vi).
+      throw new BadRequestException(
+        'Tài khoản này đăng nhập bằng Google, chưa có mật khẩu để đổi',
+      );
     }
 
     const isCurrentValid = await compare(
