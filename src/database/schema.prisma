@@ -84,6 +84,7 @@ model User {
   activityLogs         ActivityLog[]
   taskStars            TaskStar[]
   taskWatches          TaskWatcher[]
+  docs                 Doc[]
 
   @@index([googleId])
   @@map("users")
@@ -147,6 +148,7 @@ model Workspace {
   sprints       Sprint[]
   notifications Notification[]
   activityLogs  ActivityLog[]
+  docs          Doc[]
 
   @@index([ownerId])
   @@map("workspaces")
@@ -386,6 +388,26 @@ model Comment {
 
   @@index([taskId])
   @@map("comments")
+}
+
+// docs.md #3: content lưu nguyên JSON do Frontend gửi lên (rich-text editor),
+// Backend không hiểu/không xử lý cấu trúc bên trong.
+model Doc {
+  id          String    @id @default(uuid()) @map("_id")
+  workspaceId String
+  title       String
+  content     Json?
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  author    User      @relation(fields: [createdBy], references: [id])
+
+  @@index([workspaceId])
+  @@map("docs")
 }
 
 // checklist.md #10: Checklist không hỗ trợ Soft Delete riêng — tuân theo

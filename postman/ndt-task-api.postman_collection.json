@@ -28,7 +28,8 @@
     { "key": "targetUserId", "value": "", "type": "string" },
     { "key": "checklistId", "value": "", "type": "string" },
     { "key": "labelId", "value": "", "type": "string" },
-    { "key": "notificationId", "value": "", "type": "string" }
+    { "key": "notificationId", "value": "", "type": "string" },
+    { "key": "docId", "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -1695,6 +1696,100 @@
               ]
             },
             "description": "Chỉ tìm Task, hỗ trợ đủ filter giống GET /workspaces/:workspaceId/search (priority/status/assigneeId/reporterId/done/label/sprintId/columnId/dateFrom-dateTo/updatedFrom-updatedTo/sortBy/order) nhưng gộp trên tất cả Workspace user là Member."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Docs",
+      "item": [
+        {
+          "name": "Create Doc",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('docId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Onboarding guide\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/docs",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "docs"]
+            },
+            "description": "Mọi Member Active của Workspace đều tạo được. content bỏ trống = trang trắng. Tự động lưu docId."
+          },
+          "response": []
+        },
+        {
+          "name": "List Docs by Workspace",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/docs",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "docs"]
+            },
+            "description": "Danh sách Doc trong Workspace, không kèm content đầy đủ (tránh response nặng)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Doc Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/docs/{{docId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["docs", "{{docId}}"]
+            },
+            "description": "Kèm content đầy đủ."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Doc",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Onboarding guide (updated)\",\n  \"content\": { \"type\": \"doc\", \"content\": [] }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/docs/{{docId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["docs", "{{docId}}"]
+            },
+            "description": "Chỉ tác giả hoặc Owner/Admin được sửa. content là JSON tùy cấu trúc editor Frontend, ví dụ ở đây chỉ minh họa."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Doc",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/docs/{{docId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["docs", "{{docId}}"]
+            },
+            "description": "Soft delete. Chỉ tác giả hoặc Owner/Admin được xóa."
           },
           "response": []
         }
