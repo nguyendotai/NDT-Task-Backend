@@ -18,6 +18,25 @@ const WORKSPACE_CONTEXT_INCLUDE = {
   },
 } satisfies Prisma.TaskInclude;
 
+// MongoDB transaction (dùng khi reorder Task) có thể báo write conflict nếu
+// 2 request kéo-thả chạm cùng lúc vào cùng Column — đây là lỗi tạm thời,
+// Prisma khuyến nghị tự retry (mã lỗi P2034), không phải bug logic.
+async function withWriteConflictRetry<T>(
+  operation: () => Promise<T>,
+  retriesLeft = 3,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    const isWriteConflict =
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2034';
+    if (!isWriteConflict || retriesLeft <= 0) throw error;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    return withWriteConflictRetry(operation, retriesLeft - 1);
+  }
+}
+
 @Injectable()
 export class TaskRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -136,59 +155,60 @@ export class TaskRepository {
     if (sourceColumnId === targetColumnId) {
       if (targetOrder === currentOrder) return;
 
-      const shiftSiblings =
-        targetOrder < currentOrder
-          ? this.prisma.task.updateMany({
-              where: {
-                columnId: sourceColumnId,
-                deletedAt: null,
-                id: { not: taskId },
-                order: { gte: targetOrder, lt: currentOrder },
-              },
-              data: { order: { increment: 1 } },
-            })
-          : this.prisma.task.updateMany({
-              where: {
-                columnId: sourceColumnId,
-                deletedAt: null,
-                id: { not: taskId },
-                order: { gt: currentOrder, lte: targetOrder },
-              },
-              data: { order: { decrement: 1 } },
-            });
-
-      await this.prisma.$transaction([
-        shiftSiblings,
-        this.prisma.task.update({
-          where: { id: taskId },
-          data: { order: targetOrder },
-        }),
-      ]);
+      await withWriteConflictRetry(() =>
+        this.prisma.$transaction([
+          targetOrder < currentOrder
+            ? this.prisma.task.updateMany({
+                where: {
+                  columnId: sourceColumnId,
+                  deletedAt: null,
+                  id: { not: taskId },
+                  order: { gte: targetOrder, lt: currentOrder },
+                },
+                data: { order: { increment: 1 } },
+              })
+            : this.prisma.task.updateMany({
+                where: {
+                  columnId: sourceColumnId,
+                  deletedAt: null,
+                  id: { not: taskId },
+                  order: { gt: currentOrder, lte: targetOrder },
+                },
+                data: { order: { decrement: 1 } },
+              }),
+          this.prisma.task.update({
+            where: { id: taskId },
+            data: { order: targetOrder },
+          }),
+        ]),
+      );
       return;
     }
 
-    await this.prisma.$transaction([
-      this.prisma.task.updateMany({
-        where: {
-          columnId: sourceColumnId,
-          deletedAt: null,
-          order: { gt: currentOrder },
-        },
-        data: { order: { decrement: 1 } },
-      }),
-      this.prisma.task.updateMany({
-        where: {
-          columnId: targetColumnId,
-          deletedAt: null,
-          order: { gte: targetOrder },
-        },
-        data: { order: { increment: 1 } },
-      }),
-      this.prisma.task.update({
-        where: { id: taskId },
-        data: { columnId: targetColumnId, order: targetOrder },
-      }),
-    ]);
+    await withWriteConflictRetry(() =>
+      this.prisma.$transaction([
+        this.prisma.task.updateMany({
+          where: {
+            columnId: sourceColumnId,
+            deletedAt: null,
+            order: { gt: currentOrder },
+          },
+          data: { order: { decrement: 1 } },
+        }),
+        this.prisma.task.updateMany({
+          where: {
+            columnId: targetColumnId,
+            deletedAt: null,
+            order: { gte: targetOrder },
+          },
+          data: { order: { increment: 1 } },
+        }),
+        this.prisma.task.update({
+          where: { id: taskId },
+          data: { columnId: targetColumnId, order: targetOrder },
+        }),
+      ]),
+    );
   }
 
   softDelete(id: string, deletedBy: string) {
