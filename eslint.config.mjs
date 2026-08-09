@@ -32,4 +32,16 @@ export default tseslint.config(
       "prettier/prettier": ["error", { endOfLine: "auto" }],
     },
   },
+  {
+    // jest.Mocked<T>/jest.requireMock trả `any` theo thiết kế — các rule này
+    // báo false-positive liên tục trên mock method (vd. `expect(repo.create).toHaveBeenCalled()`),
+    // không phản ánh lỗi thật. Chỉ tắt trong phạm vi file test.
+    files: ['**/*.spec.ts'],
+    rules: {
+      '@typescript-eslint/unbound-method': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+    },
+  },
 );
