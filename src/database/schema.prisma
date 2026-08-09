@@ -269,10 +269,33 @@ model Sprint {
 
   workspace Workspace @relation(fields: [workspaceId], references: [id])
   tasks     Task[]
+  snapshots SprintSnapshot[]
 
   @@index([workspaceId])
   @@index([status])
   @@map("sprints")
+}
+
+// Burndown Chart cần xu hướng "còn lại bao nhiêu điểm mỗi ngày" — không suy
+// ngược được từ trạng thái hiện tại, nên phải chụp snapshot mỗi ngày cho
+// Sprint đang Active (cron BullMQ, xem modules/sprint/snapshot/). Sprint cũ
+// đã trôi qua trước khi tính năng này lên production sẽ không có đủ dữ liệu
+// lịch sử — đây là giới hạn kỹ thuật khách quan, không phải thiếu sót.
+model SprintSnapshot {
+  id               String   @id @default(uuid()) @map("_id")
+  sprintId         String
+  // Chuẩn hoá về 00:00:00 UTC của ngày chụp — tránh trùng lặp nếu cron chạy
+  // lại nhiều lần trong cùng 1 ngày.
+  snapshotDate     DateTime
+  totalPoints      Int
+  remainingPoints  Int
+  createdAt        DateTime @default(now())
+
+  sprint Sprint @relation(fields: [sprintId], references: [id])
+
+  @@unique([sprintId, snapshotDate])
+  @@index([sprintId])
+  @@map("sprintSnapshots")
 }
 
 // =========================================================================

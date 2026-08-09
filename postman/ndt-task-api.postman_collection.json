@@ -1116,6 +1116,32 @@
             "description": "Chỉ Owner/Admin, khi Sprint đang Planned hoặc Active (400 nếu đã Completed). Task quay về Product Backlog sau khi xóa."
           },
           "response": []
+        },
+        {
+          "name": "Get Sprint Burndown",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/sprints/{{sprintId}}/burndown",
+              "host": ["{{baseUrl}}"],
+              "path": ["sprints", "{{sprintId}}", "burndown"]
+            },
+            "description": "Mọi Member Active. idealLine (đường thẳng lý tưởng) + actualLine (từ snapshot cron mỗi ngày, tự thêm điểm hôm nay nếu chưa chụp)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Workspace Velocity",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/sprints/velocity",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "sprints", "velocity"]
+            },
+            "description": "Mọi Member Active. Tổng storyPoints hoàn thành của từng Sprint đã Completed, sắp theo completedAt tăng dần."
+          },
+          "response": []
         }
       ]
     },
