@@ -23,4 +23,16 @@ export class ActivityLogRepository {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  listByWorkspace(
+    workspaceId: string,
+    params: { limit: number; offset: number },
+  ) {
+    return this.prisma.activityLog.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: 'desc' },
+      take: params.limit,
+      skip: params.offset,
+    });
+  }
 }

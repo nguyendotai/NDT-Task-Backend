@@ -18,6 +18,7 @@ import { UpdateWorkspaceDto } from './dto/update-workspace.dto';
 import { InviteMemberDto } from './dto/invite-member.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { TransferOwnerDto } from './dto/transfer-owner.dto';
+import { ListActivityDto } from './dto/list-activity.dto';
 
 @Controller('workspaces')
 @UseGuards(JwtAuthGuard)
@@ -112,6 +113,15 @@ export class WorkspaceController {
   @Get(':id/members')
   listMembers(@CurrentUser() user: UserEntity, @Param('id') id: string) {
     return this.workspaceService.listMembers(id, user.id);
+  }
+
+  @Get(':id/activity')
+  listActivity(
+    @CurrentUser() user: UserEntity,
+    @Param('id') id: string,
+    @Query() query: ListActivityDto,
+  ) {
+    return this.workspaceService.listActivity(id, user.id, query);
   }
 
   @Post(':id/members/invite')

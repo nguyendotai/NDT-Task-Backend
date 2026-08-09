@@ -466,6 +466,23 @@
           "response": []
         },
         {
+          "name": "List Workspace Activity (Audit Log)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/activity?limit=50&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "activity"],
+              "query": [
+                { "key": "limit", "value": "50" },
+                { "key": "offset", "value": "0" }
+              ]
+            },
+            "description": "Chỉ Owner/Admin. Audit Log gộp mọi entityType trong Workspace, mới nhất trước. actorId trả thô, tự tra tên qua List Members."
+          },
+          "response": []
+        },
+        {
           "name": "Invite Member",
           "event": [
             {

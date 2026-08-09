@@ -445,6 +445,26 @@ export class WorkspaceService {
     return this.toInvitationEntity(invitation);
   }
 
+  // Audit Log: chỉ Owner/Admin xem được toàn bộ lịch sử hành động của
+  // Workspace (mọi entityType gộp chung) — Member thường chỉ thấy History
+  // trong từng Task (đã có sẵn qua GET /tasks/:id/activity).
+  async listActivity(
+    workspaceId: string,
+    actorId: string,
+    params: { limit?: number; offset?: number },
+  ) {
+    await this.getActiveWorkspaceOrThrow(workspaceId);
+    await this.assertRole(workspaceId, actorId, [
+      WorkspaceRole.OWNER,
+      WorkspaceRole.ADMIN,
+    ]);
+
+    return this.activityLogService.listByWorkspace(workspaceId, {
+      limit: params.limit ?? 50,
+      offset: params.offset ?? 0,
+    });
+  }
+
   async listInvitations(workspaceId: string, actorId: string) {
     await this.getActiveWorkspaceOrThrow(workspaceId);
     await this.assertRole(workspaceId, actorId, [
