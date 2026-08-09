@@ -106,4 +106,97 @@ export class SprintRepository {
       data: { sprintId: null },
     });
   }
+
+  // ---------------------------------------------------------------------
+  // Burndown / Velocity
+  // ---------------------------------------------------------------------
+
+  // Burndown "hiện tại": tổng điểm và điểm còn lại (Task chưa ở Column
+  // isDoneColumn) của Sprint — dùng để chụp snapshot theo ngày (cron) và làm
+  // điểm cuối của đường "actual" nếu snapshot hôm nay chưa chạy.
+  async getCurrentPoints(
+    sprintId: string,
+  ): Promise<{ totalPoints: number; remainingPoints: number }> {
+    const [totalAgg, remainingAgg] = await Promise.all([
+      this.prisma.task.aggregate({
+        where: { sprintId, deletedAt: null },
+        _sum: { storyPoints: true },
+      }),
+      this.prisma.task.aggregate({
+        where: {
+          sprintId,
+          deletedAt: null,
+          column: { isDoneColumn: false },
+        },
+        _sum: { storyPoints: true },
+      }),
+    ]);
+    return {
+      totalPoints: totalAgg._sum.storyPoints ?? 0,
+      remainingPoints: remainingAgg._sum.storyPoints ?? 0,
+    };
+  }
+
+  listActiveSprintIds(): Promise<{ id: string }[]> {
+    return this.prisma.sprint.findMany({
+      where: { status: SprintStatus.ACTIVE, deletedAt: null },
+      select: { id: true },
+    });
+  }
+
+  upsertSnapshot(data: {
+    sprintId: string;
+    snapshotDate: Date;
+    totalPoints: number;
+    remainingPoints: number;
+  }) {
+    return this.prisma.sprintSnapshot.upsert({
+      where: {
+        sprintId_snapshotDate: {
+          sprintId: data.sprintId,
+          snapshotDate: data.snapshotDate,
+        },
+      },
+      create: data,
+      update: {
+        totalPoints: data.totalPoints,
+        remainingPoints: data.remainingPoints,
+      },
+    });
+  }
+
+  listSnapshotsBySprintId(sprintId: string) {
+    return this.prisma.sprintSnapshot.findMany({
+      where: { sprintId },
+      orderBy: { snapshotDate: 'asc' },
+    });
+  }
+
+  // Velocity của 1 Sprint đã Completed = tổng storyPoints các Task còn giữ
+  // sprintId này — Task chưa xong đã tự động bị gỡ (sprintId = null) lúc
+  // complete() nên phần còn lại chắc chắn đều đã Done (xem complete() trên).
+  async listCompletedSprintsWithVelocity(workspaceId: string) {
+    const sprints = await this.prisma.sprint.findMany({
+      where: {
+        workspaceId,
+        status: SprintStatus.COMPLETED,
+        deletedAt: null,
+      },
+      orderBy: { completedAt: 'asc' },
+    });
+
+    const velocities = await Promise.all(
+      sprints.map((sprint) =>
+        this.prisma.task.aggregate({
+          where: { sprintId: sprint.id, deletedAt: null },
+          _sum: { storyPoints: true },
+        }),
+      ),
+    );
+
+    return sprints.map((sprint, index) => ({
+      sprint,
+      velocity: velocities[index]._sum.storyPoints ?? 0,
+    }));
+  }
 }

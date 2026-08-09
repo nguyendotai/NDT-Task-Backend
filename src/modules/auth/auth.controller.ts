@@ -21,6 +21,9 @@ import { GoogleAuthDto } from './dto/google-auth.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { EnableTwoFactorDto } from './dto/enable-two-factor.dto';
+import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
+import { VerifyTwoFactorLoginDto } from './dto/verify-two-factor-login.dto';
 
 const REFRESH_TOKEN_COOKIE = 'refreshToken';
 
@@ -44,11 +47,17 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { accessToken, refreshToken, refreshTokenExpiresAt, user } =
-      await this.authService.login(dto, this.extractMeta(req));
+    const result = await this.authService.login(dto, this.extractMeta(req));
+    if (result.requiresTwoFactor) {
+      return { requiresTwoFactor: true, tempToken: result.tempToken };
+    }
 
-    this.setRefreshTokenCookie(res, refreshToken, refreshTokenExpiresAt);
-    return { accessToken, user };
+    this.setRefreshTokenCookie(
+      res,
+      result.refreshToken,
+      result.refreshTokenExpiresAt,
+    );
+    return { accessToken: result.accessToken, user: result.user };
   }
 
   @Post('google')
@@ -58,11 +67,63 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
+    const result = await this.authService.googleLogin(
+      dto,
+      this.extractMeta(req),
+    );
+    if (result.requiresTwoFactor) {
+      return { requiresTwoFactor: true, tempToken: result.tempToken };
+    }
+
+    this.setRefreshTokenCookie(
+      res,
+      result.refreshToken,
+      result.refreshTokenExpiresAt,
+    );
+    return { accessToken: result.accessToken, user: result.user };
+  }
+
+  @Post('2fa/verify-login')
+  @HttpCode(HttpStatus.OK)
+  async verifyTwoFactorLogin(
+    @Body() dto: VerifyTwoFactorLoginDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const { accessToken, refreshToken, refreshTokenExpiresAt, user } =
-      await this.authService.googleLogin(dto, this.extractMeta(req));
+      await this.authService.verifyTwoFactorLogin(dto, this.extractMeta(req));
 
     this.setRefreshTokenCookie(res, refreshToken, refreshTokenExpiresAt);
     return { accessToken, user };
+  }
+
+  @Post('2fa/setup')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  setupTwoFactor(@CurrentUser() user: UserEntity) {
+    return this.authService.setupTwoFactor(user.id);
+  }
+
+  @Post('2fa/enable')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async enableTwoFactor(
+    @CurrentUser() user: UserEntity,
+    @Body() dto: EnableTwoFactorDto,
+  ) {
+    await this.authService.enableTwoFactor(user.id, dto);
+    return {};
+  }
+
+  @Post('2fa/disable')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async disableTwoFactor(
+    @CurrentUser() user: UserEntity,
+    @Body() dto: DisableTwoFactorDto,
+  ) {
+    await this.authService.disableTwoFactor(user.id, dto);
+    return {};
   }
 
   @Post('logout')

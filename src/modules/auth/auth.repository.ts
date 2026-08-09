@@ -121,4 +121,27 @@ export class AuthRepository {
       data: { usedAt: new Date() },
     });
   }
+
+  // 2FA: setup() ghi secret nhưng CHƯA bật (twoFactorEnabled vẫn false) — chỉ
+  // enableTwoFactor() (sau khi verify đúng mã lần đầu) mới thật sự bật.
+  setPendingTwoFactorSecret(userId: string, secret: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorSecret: secret },
+    });
+  }
+
+  enableTwoFactor(userId: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorEnabled: true },
+    });
+  }
+
+  disableTwoFactor(userId: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorEnabled: false, twoFactorSecret: null },
+    });
+  }
 }

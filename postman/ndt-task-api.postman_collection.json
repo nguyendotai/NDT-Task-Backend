@@ -29,7 +29,10 @@
     { "key": "checklistId", "value": "", "type": "string" },
     { "key": "labelId", "value": "", "type": "string" },
     { "key": "notificationId", "value": "", "type": "string" },
-    { "key": "docId", "value": "", "type": "string" }
+    { "key": "docId", "value": "", "type": "string" },
+    { "key": "timeLogId", "value": "", "type": "string" },
+    { "key": "twoFactorSecret", "value": "", "type": "string" },
+    { "key": "twoFactorTempToken", "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -64,8 +67,12 @@
                 "exec": [
                   "if (pm.response.code === 200) {",
                   "  const body = pm.response.json();",
-                  "  pm.collectionVariables.set('accessToken', body.data.accessToken);",
-                  "  pm.collectionVariables.set('userId', body.data.user.id);",
+                  "  if (body.data.requiresTwoFactor) {",
+                  "    pm.collectionVariables.set('twoFactorTempToken', body.data.tempToken);",
+                  "  } else {",
+                  "    pm.collectionVariables.set('accessToken', body.data.accessToken);",
+                  "    pm.collectionVariables.set('userId', body.data.user.id);",
+                  "  }",
                   "}"
                 ]
               }
@@ -98,8 +105,12 @@
                 "exec": [
                   "if (pm.response.code === 200) {",
                   "  const body = pm.response.json();",
-                  "  pm.collectionVariables.set('accessToken', body.data.accessToken);",
-                  "  pm.collectionVariables.set('userId', body.data.user.id);",
+                  "  if (body.data.requiresTwoFactor) {",
+                  "    pm.collectionVariables.set('twoFactorTempToken', body.data.tempToken);",
+                  "  } else {",
+                  "    pm.collectionVariables.set('accessToken', body.data.accessToken);",
+                  "    pm.collectionVariables.set('userId', body.data.user.id);",
+                  "  }",
                   "}"
                 ]
               }
@@ -217,6 +228,103 @@
               "path": ["auth", "change-password"]
             },
             "description": "Đổi mật khẩu khi đang đăng nhập. 401 nếu currentPassword sai. Thành công sẽ revoke toàn bộ refresh token hiện có của user (giống Reset Password)."
+          },
+          "response": []
+        },
+        {
+          "name": "Setup 2FA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('twoFactorSecret', body.data.secret);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/setup",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "setup"]
+            },
+            "description": "Sinh secret TOTP mới (chưa bật) + QR code data URL để quét bằng App xác thực. Tự động lưu twoFactorSecret — vì Postman không tạo được mã TOTP, phải tự dùng thư viện (VD otplib) hoặc App xác thực với secret này để lấy code cho 2 request bên dưới."
+          },
+          "response": []
+        },
+        {
+          "name": "Enable 2FA",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/enable",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "enable"]
+            },
+            "description": "Xác nhận đúng mã 6 số từ App xác thực (dựa trên {{twoFactorSecret}}) mới thật sự bật 2FA. 400 nếu chưa gọi Setup 2FA trước, 401 nếu mã sai."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify 2FA Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('accessToken', body.data.accessToken);",
+                  "  pm.collectionVariables.set('userId', body.data.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tempToken\": \"{{twoFactorTempToken}}\",\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/verify-login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "verify-login"]
+            },
+            "description": "Bước 2 khi Login/Login with Google trả requiresTwoFactor=true. Dùng tempToken đã lưu tự động + mã TOTP hiện tại. Thành công mới thật sự nhận Access/Refresh Token."
+          },
+          "response": []
+        },
+        {
+          "name": "Disable 2FA",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/disable",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "disable"]
+            },
+            "description": "Bắt buộc đúng mã TOTP hiện tại mới tắt được (không chỉ cần Access Token). 400 nếu 2FA chưa bật, 401 nếu mã sai."
           },
           "response": []
         }
@@ -462,6 +570,23 @@
               "path": ["workspaces", "{{workspaceId}}", "members"]
             },
             "description": "Danh sách Member Active. Lấy id (memberId) và user.id (newOwnerId) từ đây để set thủ công cho các request bên dưới."
+          },
+          "response": []
+        },
+        {
+          "name": "List Workspace Activity (Audit Log)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/activity?limit=50&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "activity"],
+              "query": [
+                { "key": "limit", "value": "50" },
+                { "key": "offset", "value": "0" }
+              ]
+            },
+            "description": "Chỉ Owner/Admin. Audit Log gộp mọi entityType trong Workspace, mới nhất trước. actorId trả thô, tự tra tên qua List Members."
           },
           "response": []
         },
@@ -1096,6 +1221,32 @@
               "path": ["sprints", "{{sprintId}}", "tasks", "{{taskId}}"]
             },
             "description": "Chỉ Owner/Admin, khi Sprint đang Planned hoặc Active (400 nếu đã Completed). Task quay về Product Backlog sau khi xóa."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sprint Burndown",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/sprints/{{sprintId}}/burndown",
+              "host": ["{{baseUrl}}"],
+              "path": ["sprints", "{{sprintId}}", "burndown"]
+            },
+            "description": "Mọi Member Active. idealLine (đường thẳng lý tưởng) + actualLine (từ snapshot cron mỗi ngày, tự thêm điểm hôm nay nếu chưa chụp)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Workspace Velocity",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/workspaces/{{workspaceId}}/sprints/velocity",
+              "host": ["{{baseUrl}}"],
+              "path": ["workspaces", "{{workspaceId}}", "sprints", "velocity"]
+            },
+            "description": "Mọi Member Active. Tổng storyPoints hoàn thành của từng Sprint đã Completed, sắp theo completedAt tăng dần."
           },
           "response": []
         }
@@ -1790,6 +1941,87 @@
               "path": ["docs", "{{docId}}"]
             },
             "description": "Soft delete. Chỉ tác giả hoặc Owner/Admin được xóa."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Time Tracking",
+      "item": [
+        {
+          "name": "Create Time Log",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('timeLogId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hours\": 2.5,\n  \"loggedDate\": \"2026-01-01\",\n  \"note\": \"Investigated the bug\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/timelogs",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "timelogs"]
+            },
+            "description": "Ghi giờ làm việc thủ công cho 1 Task. Mọi Member Active của Workspace đều ghi được. Tự động lưu timeLogId."
+          },
+          "response": []
+        },
+        {
+          "name": "List Time Logs by Task",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/timelogs",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "timelogs"]
+            },
+            "description": "Danh sách Time Log của Task, sắp theo loggedDate giảm dần. Không có tổng số giờ — tự cộng dồn field hours."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Time Log",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hours\": 3\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/timelogs/{{timeLogId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["timelogs", "{{timeLogId}}"]
+            },
+            "description": "Chỉ người ghi log hoặc Owner/Admin (403 nếu không)."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Time Log",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/timelogs/{{timeLogId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["timelogs", "{{timeLogId}}"]
+            },
+            "description": "Hard delete (không Soft Delete). Chỉ người ghi log hoặc Owner/Admin (403 nếu không)."
           },
           "response": []
         }

@@ -11,6 +11,12 @@ import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcrypt';
 import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 import ms, { type StringValue } from 'ms';
+import {
+  generateSecret as generateTwoFactorSecret,
+  generateURI as generateTwoFactorUri,
+  verify as verifyTwoFactorCode,
+} from 'otplib';
+import { toDataURL as toQrCodeDataUrl } from 'qrcode';
 import { AuthRepository } from './auth.repository';
 import { MailQueueService } from '../../config/mail-queue.service';
 import { withTimeout } from '../../common/utils/with-timeout.util';
@@ -20,17 +26,30 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
+import { EnableTwoFactorDto } from './dto/enable-two-factor.dto';
+import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
+import { VerifyTwoFactorLoginDto } from './dto/verify-two-factor-login.dto';
 import { UserEntity } from '../user/entities/user.entity';
 
 const BCRYPT_SALT_ROUNDS = 10;
 const RESET_TOKEN_TTL_MS = ms('1h');
 const ENQUEUE_TIMEOUT_MS = 3000;
+// auth.md #3.3: claim đánh dấu token tạm chờ mã 2FA — JwtStrategy chặn hẳn
+// token có claim này khỏi dùng như access token thật (xem jwt.strategy.ts).
+const TWO_FACTOR_PENDING_PURPOSE = 'two-factor-pending';
+const TWO_FACTOR_PENDING_TTL = '5m';
 
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
   refreshTokenExpiresAt: Date;
 }
+
+// login()/googleLogin() trả 1 trong 2 dạng: cần thêm bước 2FA (chưa có token
+// thật) hoặc đăng nhập xong hẳn (giống hành vi cũ khi user chưa bật 2FA).
+export type LoginResult =
+  | { requiresTwoFactor: true; tempToken: string }
+  | (AuthTokens & { requiresTwoFactor: false; user: UserEntity });
 
 @Injectable()
 export class AuthService {
@@ -67,7 +86,7 @@ export class AuthService {
   async login(
     dto: LoginDto,
     meta: { userAgent?: string; ipAddress?: string },
-  ): Promise<AuthTokens & { user: UserEntity }> {
+  ): Promise<LoginResult> {
     const user = await this.authRepository.findUserByEmail(dto.email);
     // auth.md #3.1: User tạo qua Google có thể chưa có passwordHash — không
     // so sánh compare(password, null) (bcrypt sẽ throw), coi như sai luôn.
@@ -79,8 +98,21 @@ export class AuthService {
       throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
     }
 
+    // auth.md #3.3: mật khẩu đúng nhưng đã bật 2FA — chưa cấp token thật,
+    // bắt buộc thêm bước POST /auth/2fa/verify-login với mã TOTP.
+    if (user.twoFactorEnabled) {
+      return {
+        requiresTwoFactor: true,
+        tempToken: await this.issuePendingTwoFactorToken(user.id),
+      };
+    }
+
     const tokens = await this.issueTokens(user.id, meta);
-    return { ...tokens, user: this.toUserEntity(user) };
+    return {
+      ...tokens,
+      requiresTwoFactor: false,
+      user: this.toUserEntity(user),
+    };
   }
 
   // auth.md #3.2: verify ID Token thật từ Google Identity Services (Frontend),
@@ -89,7 +121,7 @@ export class AuthService {
   async googleLogin(
     dto: GoogleAuthDto,
     meta: { userAgent?: string; ipAddress?: string },
-  ): Promise<AuthTokens & { user: UserEntity }> {
+  ): Promise<LoginResult> {
     const clientId = this.configService.get<string>('google.clientId');
     let payload: TokenPayload | undefined;
     try {
@@ -141,8 +173,132 @@ export class AuthService {
       );
     }
 
+    // auth.md #3.3: 2FA áp dụng cho mọi cách đăng nhập, kể cả Google — nếu
+    // không chặn ở đây, đăng nhập Google sẽ là đường vòng bỏ qua 2FA hoàn toàn.
+    if (user.twoFactorEnabled) {
+      return {
+        requiresTwoFactor: true,
+        tempToken: await this.issuePendingTwoFactorToken(user.id),
+      };
+    }
+
+    const tokens = await this.issueTokens(user.id, meta);
+    return {
+      ...tokens,
+      requiresTwoFactor: false,
+      user: this.toUserEntity(user),
+    };
+  }
+
+  // auth.md #3.3: hoàn tất đăng nhập sau khi đã qua bước mật khẩu/Google,
+  // xác thực đúng mã TOTP hiện tại rồi mới thật sự cấp Access/Refresh Token.
+  async verifyTwoFactorLogin(
+    dto: VerifyTwoFactorLoginDto,
+    meta: { userAgent?: string; ipAddress?: string },
+  ): Promise<AuthTokens & { user: UserEntity }> {
+    let payload: { sub: string; purpose?: string };
+    try {
+      payload = await this.jwtService.verifyAsync(dto.tempToken);
+    } catch {
+      throw new UnauthorizedException(
+        'Token xác thực 2FA không hợp lệ hoặc đã hết hạn',
+      );
+    }
+    if (payload.purpose !== TWO_FACTOR_PENDING_PURPOSE) {
+      throw new UnauthorizedException('Token không hợp lệ cho thao tác này');
+    }
+
+    const user = await this.authRepository.findUserById(payload.sub);
+    if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
+      throw new UnauthorizedException('Tài khoản chưa bật 2FA');
+    }
+
+    const result = await verifyTwoFactorCode({
+      token: dto.code,
+      secret: user.twoFactorSecret,
+    });
+    if (!result.valid) {
+      throw new UnauthorizedException('Mã xác thực không đúng');
+    }
+
     const tokens = await this.issueTokens(user.id, meta);
     return { ...tokens, user: this.toUserEntity(user) };
+  }
+
+  // auth.md #3.3: bước 1 — sinh secret mới, CHƯA bật (chờ POST /2fa/enable
+  // xác nhận đúng mã lần đầu mới thật sự bật). Gọi lại /setup nhiều lần trước
+  // khi enable sẽ ghi đè secret cũ bằng secret mới (secret cũ coi như huỷ).
+  async setupTwoFactor(
+    userId: string,
+  ): Promise<{ secret: string; qrCodeDataUrl: string }> {
+    const user = await this.authRepository.findUserById(userId);
+    if (!user) {
+      throw new UnauthorizedException('Không tìm thấy tài khoản');
+    }
+
+    const secret = generateTwoFactorSecret();
+    await this.authRepository.setPendingTwoFactorSecret(userId, secret);
+
+    const otpauthUri = generateTwoFactorUri({
+      issuer: 'NDT Task',
+      label: user.email,
+      secret,
+    });
+    const qrCodeDataUrl = await toQrCodeDataUrl(otpauthUri);
+
+    return { secret, qrCodeDataUrl };
+  }
+
+  // auth.md #3.3: bước 2 — xác nhận đúng mã từ App xác thực thì mới bật thật.
+  async enableTwoFactor(
+    userId: string,
+    dto: EnableTwoFactorDto,
+  ): Promise<void> {
+    const user = await this.authRepository.findUserById(userId);
+    if (!user?.twoFactorSecret) {
+      throw new BadRequestException(
+        'Chưa khởi tạo 2FA — gọi /auth/2fa/setup trước',
+      );
+    }
+
+    const result = await verifyTwoFactorCode({
+      token: dto.code,
+      secret: user.twoFactorSecret,
+    });
+    if (!result.valid) {
+      throw new UnauthorizedException('Mã xác thực không đúng');
+    }
+
+    await this.authRepository.enableTwoFactor(userId);
+  }
+
+  // auth.md #3.3: bắt buộc nhập lại đúng mã hiện tại mới tắt được — tránh
+  // tắt 2FA chỉ bằng access token bị đánh cắp mà không có thiết bị xác thực.
+  async disableTwoFactor(
+    userId: string,
+    dto: DisableTwoFactorDto,
+  ): Promise<void> {
+    const user = await this.authRepository.findUserById(userId);
+    if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
+      throw new BadRequestException('2FA chưa được bật');
+    }
+
+    const result = await verifyTwoFactorCode({
+      token: dto.code,
+      secret: user.twoFactorSecret,
+    });
+    if (!result.valid) {
+      throw new UnauthorizedException('Mã xác thực không đúng');
+    }
+
+    await this.authRepository.disableTwoFactor(userId);
+  }
+
+  private issuePendingTwoFactorToken(userId: string): Promise<string> {
+    return this.jwtService.signAsync(
+      { sub: userId, purpose: TWO_FACTOR_PENDING_PURPOSE },
+      { expiresIn: TWO_FACTOR_PENDING_TTL },
+    );
   }
 
   async refresh(
@@ -313,6 +469,7 @@ export class AuthService {
     avatarPublicId: string | null;
     settings: unknown;
     systemRole: UserEntity['systemRole'];
+    twoFactorEnabled: boolean;
     createdAt: Date;
     updatedAt: Date;
   }): UserEntity {
@@ -324,6 +481,7 @@ export class AuthService {
       avatarPublicId: user.avatarPublicId,
       settings: user.settings as Record<string, unknown> | null,
       systemRole: user.systemRole,
+      twoFactorEnabled: user.twoFactorEnabled,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

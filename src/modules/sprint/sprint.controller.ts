@@ -26,6 +26,11 @@ export class SprintController {
     return this.sprintService.getDetail(id, user.id);
   }
 
+  @Get(':id/burndown')
+  getBurndown(@CurrentUser() user: UserEntity, @Param('id') id: string) {
+    return this.sprintService.getBurndown(id, user.id);
+  }
+
   @Patch(':id')
   update(
     @CurrentUser() user: UserEntity,
@@ -84,5 +89,13 @@ export class WorkspaceSprintsController {
     @Param('workspaceId') workspaceId: string,
   ) {
     return this.sprintService.listByWorkspace(workspaceId, user.id);
+  }
+
+  @Get(':workspaceId/sprints/velocity')
+  getVelocity(
+    @CurrentUser() user: UserEntity,
+    @Param('workspaceId') workspaceId: string,
+  ) {
+    return this.sprintService.getVelocity(workspaceId, user.id);
   }
 }

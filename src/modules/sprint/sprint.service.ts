@@ -11,6 +11,7 @@ import {
   WorkspaceType,
 } from '@prisma/client';
 import { SprintRepository } from './sprint.repository';
+import { startOfUtcDay } from './sprint.util';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { ActivityLogService } from '../activity/activity-log.service';
 import { NotificationService } from '../notification/notification.service';
@@ -289,6 +290,62 @@ export class SprintService {
       'sprint.task_removed',
       { sprintId, taskId },
     );
+  }
+
+  // Burndown Chart: đường "ideal" tính thẳng từ tổng điểm hiện tại (đầu
+  // Sprint) về 0 (cuối Sprint); đường "actual" lấy từ snapshot theo ngày
+  // (cron) — nếu hôm nay chưa có snapshot và Sprint còn Active, tự thêm 1
+  // điểm "hôm nay" bằng dữ liệu tức thời để biểu đồ luôn mới nhất.
+  async getBurndown(sprintId: string, userId: string) {
+    const sprint = await this.getActiveSprintOrThrow(sprintId);
+    await this.workspaceService.assertMembership(sprint.workspaceId, userId);
+
+    const { totalPoints, remainingPoints: currentRemaining } =
+      await this.sprintRepository.getCurrentPoints(sprintId);
+    const snapshots =
+      await this.sprintRepository.listSnapshotsBySprintId(sprintId);
+
+    const actualLine = snapshots.map((snapshot) => ({
+      date: snapshot.snapshotDate,
+      remainingPoints: snapshot.remainingPoints,
+    }));
+
+    const today = startOfUtcDay(new Date());
+    const hasTodaySnapshot = snapshots.some(
+      (snapshot) => snapshot.snapshotDate.getTime() === today.getTime(),
+    );
+    if (!hasTodaySnapshot && sprint.status === SprintStatus.ACTIVE) {
+      actualLine.push({ date: today, remainingPoints: currentRemaining });
+    }
+
+    return {
+      sprintId,
+      totalPoints,
+      startDate: sprint.startDate,
+      endDate: sprint.endDate,
+      idealLine: [
+        { date: sprint.startDate, remainingPoints: totalPoints },
+        { date: sprint.endDate, remainingPoints: 0 },
+      ],
+      actualLine,
+    };
+  }
+
+  // Velocity Chart: tổng storyPoints hoàn thành của từng Sprint đã Completed
+  // trong Workspace, theo thứ tự thời gian — không cần snapshot vì đã có
+  // sẵn dữ liệu hiện tại (xem lý giải ở SprintRepository.listCompletedSprintsWithVelocity()).
+  async getVelocity(workspaceId: string, userId: string) {
+    await this.workspaceService.assertActiveWorkspace(workspaceId);
+    await this.workspaceService.assertMembership(workspaceId, userId);
+
+    const results =
+      await this.sprintRepository.listCompletedSprintsWithVelocity(workspaceId);
+    return results.map(({ sprint, velocity }) => ({
+      sprintId: sprint.id,
+      sprintName: sprint.name,
+      velocity,
+      completedAt: sprint.completedAt,
+    }));
   }
 
   // ---------------------------------------------------------------------

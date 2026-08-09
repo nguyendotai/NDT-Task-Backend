@@ -66,6 +66,13 @@ model User {
   avatarUrl      String?
   avatarPublicId String?
   settings       Json?
+  // auth.md #3.3 (2FA, opt-in): secret TOTP base32 — lưu plaintext (không mã
+  // hoá riêng, chấp nhận đánh đổi vì scope dự án) vì bắt buộc đọc lại được
+  // để tạo mã OTP, khác passwordHash/refreshToken chỉ cần so khớp hash một
+  // chiều. `twoFactorEnabled=false` + có `twoFactorSecret` = đang chờ xác
+  // nhận lần đầu (POST /auth/2fa/setup đã gọi nhưng chưa POST /auth/2fa/enable).
+  twoFactorSecret  String?
+  twoFactorEnabled Boolean    @default(false)
   systemRole     SystemRole @default(USER)
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
@@ -85,6 +92,7 @@ model User {
   taskStars            TaskStar[]
   taskWatches          TaskWatcher[]
   docs                 Doc[]
+  timeLogs             TimeLog[]
 
   @@index([googleId])
   @@map("users")
@@ -268,10 +276,33 @@ model Sprint {
 
   workspace Workspace @relation(fields: [workspaceId], references: [id])
   tasks     Task[]
+  snapshots SprintSnapshot[]
 
   @@index([workspaceId])
   @@index([status])
   @@map("sprints")
+}
+
+// Burndown Chart cần xu hướng "còn lại bao nhiêu điểm mỗi ngày" — không suy
+// ngược được từ trạng thái hiện tại, nên phải chụp snapshot mỗi ngày cho
+// Sprint đang Active (cron BullMQ, xem modules/sprint/snapshot/). Sprint cũ
+// đã trôi qua trước khi tính năng này lên production sẽ không có đủ dữ liệu
+// lịch sử — đây là giới hạn kỹ thuật khách quan, không phải thiếu sót.
+model SprintSnapshot {
+  id               String   @id @default(uuid()) @map("_id")
+  sprintId         String
+  // Chuẩn hoá về 00:00:00 UTC của ngày chụp — tránh trùng lặp nếu cron chạy
+  // lại nhiều lần trong cùng 1 ngày.
+  snapshotDate     DateTime
+  totalPoints      Int
+  remainingPoints  Int
+  createdAt        DateTime @default(now())
+
+  sprint Sprint @relation(fields: [sprintId], references: [id])
+
+  @@unique([sprintId, snapshotDate])
+  @@index([sprintId])
+  @@map("sprintSnapshots")
 }
 
 // =========================================================================
@@ -340,6 +371,7 @@ model Task {
   labels      Label[]
   stars       TaskStar[]
   watchers    TaskWatcher[]
+  timeLogs    TimeLog[]
 
   @@index([columnId])
   @@index([sprintId])
@@ -427,6 +459,27 @@ model ChecklistItem {
 
   @@index([taskId])
   @@map("checklistItems")
+}
+
+// Time Tracking: log giờ làm việc thủ công theo Task (không phải Start/Stop
+// timer thời gian thực, theo quyết định của bạn). Giống ChecklistItem, không
+// Soft Delete riêng — xóa 1 dòng log là hard delete thật, tuân theo chính
+// sách Task (Task xóa mềm thì TimeLog không hiển thị nữa).
+model TimeLog {
+  id         String   @id @default(uuid()) @map("_id")
+  taskId     String
+  userId     String
+  hours      Float
+  loggedDate DateTime
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([taskId])
+  @@map("timeLogs")
 }
 
 // Label riêng theo từng Task (không tái sử dụng giữa các Task khác), theo
