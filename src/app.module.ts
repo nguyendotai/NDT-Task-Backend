@@ -18,6 +18,7 @@ import { ChecklistModule } from './modules/checklist/checklist.module';
 import { LabelModule } from './modules/label/label.module';
 import { SearchModule } from './modules/search/search.module';
 import { DocsModule } from './modules/docs/docs.module';
+import { TimeLogModule } from './modules/timelog/timelog.module';
 import { PrismaModule } from './database/prisma.module';
 import { RedisModule } from './config/redis.module';
 import { MailModule } from './config/mail.module';
@@ -85,6 +86,7 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
     LabelModule,
     SearchModule,
     DocsModule,
+    TimeLogModule,
   ],
   controllers: [AppController],
   providers: [AppService],

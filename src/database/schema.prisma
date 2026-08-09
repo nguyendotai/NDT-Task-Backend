@@ -85,6 +85,7 @@ model User {
   taskStars            TaskStar[]
   taskWatches          TaskWatcher[]
   docs                 Doc[]
+  timeLogs             TimeLog[]
 
   @@index([googleId])
   @@map("users")
@@ -340,6 +341,7 @@ model Task {
   labels      Label[]
   stars       TaskStar[]
   watchers    TaskWatcher[]
+  timeLogs    TimeLog[]
 
   @@index([columnId])
   @@index([sprintId])
@@ -427,6 +429,27 @@ model ChecklistItem {
 
   @@index([taskId])
   @@map("checklistItems")
+}
+
+// Time Tracking: log giờ làm việc thủ công theo Task (không phải Start/Stop
+// timer thời gian thực, theo quyết định của bạn). Giống ChecklistItem, không
+// Soft Delete riêng — xóa 1 dòng log là hard delete thật, tuân theo chính
+// sách Task (Task xóa mềm thì TimeLog không hiển thị nữa).
+model TimeLog {
+  id         String   @id @default(uuid()) @map("_id")
+  taskId     String
+  userId     String
+  hours      Float
+  loggedDate DateTime
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([taskId])
+  @@map("timeLogs")
 }
 
 // Label riêng theo từng Task (không tái sử dụng giữa các Task khác), theo

@@ -29,7 +29,8 @@
     { "key": "checklistId", "value": "", "type": "string" },
     { "key": "labelId", "value": "", "type": "string" },
     { "key": "notificationId", "value": "", "type": "string" },
-    { "key": "docId", "value": "", "type": "string" }
+    { "key": "docId", "value": "", "type": "string" },
+    { "key": "timeLogId", "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -1807,6 +1808,87 @@
               "path": ["docs", "{{docId}}"]
             },
             "description": "Soft delete. Chỉ tác giả hoặc Owner/Admin được xóa."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Time Tracking",
+      "item": [
+        {
+          "name": "Create Time Log",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('timeLogId', body.data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hours\": 2.5,\n  \"loggedDate\": \"2026-01-01\",\n  \"note\": \"Investigated the bug\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/timelogs",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "timelogs"]
+            },
+            "description": "Ghi giờ làm việc thủ công cho 1 Task. Mọi Member Active của Workspace đều ghi được. Tự động lưu timeLogId."
+          },
+          "response": []
+        },
+        {
+          "name": "List Time Logs by Task",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/timelogs",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "timelogs"]
+            },
+            "description": "Danh sách Time Log của Task, sắp theo loggedDate giảm dần. Không có tổng số giờ — tự cộng dồn field hours."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Time Log",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hours\": 3\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/timelogs/{{timeLogId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["timelogs", "{{timeLogId}}"]
+            },
+            "description": "Chỉ người ghi log hoặc Owner/Admin (403 nếu không)."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Time Log",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/timelogs/{{timeLogId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["timelogs", "{{timeLogId}}"]
+            },
+            "description": "Hard delete (không Soft Delete). Chỉ người ghi log hoặc Owner/Admin (403 nếu không)."
           },
           "response": []
         }
