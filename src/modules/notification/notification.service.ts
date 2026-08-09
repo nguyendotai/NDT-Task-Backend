@@ -4,8 +4,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { NotificationType, Prisma } from '@prisma/client';
+import { UserService } from '../user/user.service';
 import { NotificationRepository } from './notification.repository';
 import { NotificationEntity } from './entities/notification.entity';
+
+// user.md (mở rộng): tuỳ chọn tắt/bật thông báo theo từng loại, chỉ ảnh
+// hưởng Notification in-app — lưu chung trong `User.settings` (field Json?
+// có sẵn từ đầu dự án, chưa ai dùng) thay vì thêm model/field mới. Mặc định
+// bật hết (opt-out) nếu user chưa từng cấu hình, giữ nguyên hành vi cũ.
+interface NotificationSettings {
+  notificationPreferences?: Partial<Record<NotificationType, boolean>>;
+}
 
 export interface NotificationEntry {
   workspaceId: string;
@@ -24,13 +33,26 @@ type NotificationRecord = NonNullable<
 export class NotificationService {
   constructor(
     private readonly notificationRepository: NotificationRepository,
+    private readonly userService: UserService,
   ) {}
 
   async notify(entry: NotificationEntry): Promise<void> {
+    const isEnabled = await this.isTypeEnabled(entry.recipientId, entry.type);
+    if (!isEnabled) return;
+
     await this.notificationRepository.create({
       ...entry,
       metadata: entry.metadata as Prisma.InputJsonValue | undefined,
     });
+  }
+
+  private async isTypeEnabled(
+    userId: string,
+    type: NotificationType,
+  ): Promise<boolean> {
+    const profile = await this.userService.getProfile(userId);
+    const settings = profile.settings as NotificationSettings | null;
+    return settings?.notificationPreferences?.[type] ?? true;
   }
 
   async listMine(
