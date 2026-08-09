@@ -87,6 +87,7 @@ export class UserService {
     avatarPublicId: string | null;
     settings: unknown;
     systemRole: UserEntity['systemRole'];
+    twoFactorEnabled: boolean;
     createdAt: Date;
     updatedAt: Date;
   }): UserEntity {
@@ -98,6 +99,7 @@ export class UserService {
       avatarPublicId: user.avatarPublicId,
       settings: user.settings as Record<string, unknown> | null,
       systemRole: user.systemRole,
+      twoFactorEnabled: user.twoFactorEnabled,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

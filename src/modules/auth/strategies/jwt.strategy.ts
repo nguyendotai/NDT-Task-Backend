@@ -7,6 +7,11 @@ import { UserEntity } from '../../user/entities/user.entity';
 
 interface JwtPayload {
   sub: string;
+  // Token tạm chờ xác thực 2FA (POST /auth/2fa/verify-login) ký bằng cùng
+  // secret access token nhưng có thêm claim này — PHẢI chặn ở đây, nếu không
+  // nó sẽ được chấp nhận như access token thật cho mọi route bảo vệ trong
+  // 5 phút hiệu lực của nó, vô hiệu hoá toàn bộ ý nghĩa của 2FA.
+  purpose?: string;
 }
 
 @Injectable()
@@ -23,6 +28,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<UserEntity> {
+    if (payload.purpose) {
+      throw new UnauthorizedException('Token không hợp lệ cho thao tác này');
+    }
+
     const user = await this.authRepository.findUserById(payload.sub);
     if (!user) {
       throw new UnauthorizedException('Người dùng không tồn tại');
@@ -36,6 +45,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       avatarPublicId: user.avatarPublicId,
       settings: user.settings as Record<string, unknown> | null,
       systemRole: user.systemRole,
+      twoFactorEnabled: user.twoFactorEnabled,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

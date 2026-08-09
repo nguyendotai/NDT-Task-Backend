@@ -30,7 +30,9 @@
     { "key": "labelId", "value": "", "type": "string" },
     { "key": "notificationId", "value": "", "type": "string" },
     { "key": "docId", "value": "", "type": "string" },
-    { "key": "timeLogId", "value": "", "type": "string" }
+    { "key": "timeLogId", "value": "", "type": "string" },
+    { "key": "twoFactorSecret", "value": "", "type": "string" },
+    { "key": "twoFactorTempToken", "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -65,8 +67,12 @@
                 "exec": [
                   "if (pm.response.code === 200) {",
                   "  const body = pm.response.json();",
-                  "  pm.collectionVariables.set('accessToken', body.data.accessToken);",
-                  "  pm.collectionVariables.set('userId', body.data.user.id);",
+                  "  if (body.data.requiresTwoFactor) {",
+                  "    pm.collectionVariables.set('twoFactorTempToken', body.data.tempToken);",
+                  "  } else {",
+                  "    pm.collectionVariables.set('accessToken', body.data.accessToken);",
+                  "    pm.collectionVariables.set('userId', body.data.user.id);",
+                  "  }",
                   "}"
                 ]
               }
@@ -99,8 +105,12 @@
                 "exec": [
                   "if (pm.response.code === 200) {",
                   "  const body = pm.response.json();",
-                  "  pm.collectionVariables.set('accessToken', body.data.accessToken);",
-                  "  pm.collectionVariables.set('userId', body.data.user.id);",
+                  "  if (body.data.requiresTwoFactor) {",
+                  "    pm.collectionVariables.set('twoFactorTempToken', body.data.tempToken);",
+                  "  } else {",
+                  "    pm.collectionVariables.set('accessToken', body.data.accessToken);",
+                  "    pm.collectionVariables.set('userId', body.data.user.id);",
+                  "  }",
                   "}"
                 ]
               }
@@ -218,6 +228,103 @@
               "path": ["auth", "change-password"]
             },
             "description": "Đổi mật khẩu khi đang đăng nhập. 401 nếu currentPassword sai. Thành công sẽ revoke toàn bộ refresh token hiện có của user (giống Reset Password)."
+          },
+          "response": []
+        },
+        {
+          "name": "Setup 2FA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('twoFactorSecret', body.data.secret);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/setup",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "setup"]
+            },
+            "description": "Sinh secret TOTP mới (chưa bật) + QR code data URL để quét bằng App xác thực. Tự động lưu twoFactorSecret — vì Postman không tạo được mã TOTP, phải tự dùng thư viện (VD otplib) hoặc App xác thực với secret này để lấy code cho 2 request bên dưới."
+          },
+          "response": []
+        },
+        {
+          "name": "Enable 2FA",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/enable",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "enable"]
+            },
+            "description": "Xác nhận đúng mã 6 số từ App xác thực (dựa trên {{twoFactorSecret}}) mới thật sự bật 2FA. 400 nếu chưa gọi Setup 2FA trước, 401 nếu mã sai."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify 2FA Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('accessToken', body.data.accessToken);",
+                  "  pm.collectionVariables.set('userId', body.data.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "auth": { "type": "noauth" },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tempToken\": \"{{twoFactorTempToken}}\",\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/verify-login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "verify-login"]
+            },
+            "description": "Bước 2 khi Login/Login with Google trả requiresTwoFactor=true. Dùng tempToken đã lưu tự động + mã TOTP hiện tại. Thành công mới thật sự nhận Access/Refresh Token."
+          },
+          "response": []
+        },
+        {
+          "name": "Disable 2FA",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/disable",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "disable"]
+            },
+            "description": "Bắt buộc đúng mã TOTP hiện tại mới tắt được (không chỉ cần Access Token). 400 nếu 2FA chưa bật, 401 nếu mã sai."
           },
           "response": []
         }
