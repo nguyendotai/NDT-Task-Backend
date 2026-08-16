@@ -31,3 +31,8 @@ Thumbs.db
 
 # TypeScript build info
 *.tsbuildinfo
+
+# Tài liệu hỗ trợ AI/dev nội bộ — không cần để chạy dự án, giữ lại trên máy
+# nhưng không đẩy lên remote (README.md là nguồn hướng dẫn chính thức).
+CLAUDE.md
+postman/
