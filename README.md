@@ -2,132 +2,132 @@
 
 # 🚀 NDT Task — Backend API
 
-**Task Management SaaS đa nền tảng** — Workspace → Board → Task, hỗ trợ cả **Kanban** lẫn **Scrum**.
-Xây dựng bằng NestJS + Prisma + MongoDB, realtime bằng Socket.IO.
+**A multi-platform Task Management SaaS** — Workspace → Board → Task, supporting both **Kanban** and **Scrum**.
+Built with NestJS + Prisma + MongoDB, realtime via Socket.IO.
 
 [![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white)](https://nestjs.com)
 [![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?logo=prisma&logoColor=white)](https://www.prisma.io)
 [![MongoDB](https://img.shields.io/badge/MongoDB-8-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 
-[Frontend repo](https://github.com/nguyendotai/NDT-Task-Frontend) · [Báo lỗi / góp ý](../../issues)
+[Frontend repo](https://github.com/nguyendotai/NDT-Task-Frontend) · [Issues / feedback](../../issues)
 
 </div>
 
 ---
 
-## 📖 Giới thiệu
+## 📖 Overview
 
-**NDT Task** là ứng dụng quản lý công việc kiểu Jira/Trello thu nhỏ: mỗi **Workspace** (nhóm/dự án) chứa 1 **Board**, Board chia thành nhiều **Column**, mỗi Column chứa nhiều **Task**. Workspace có thể chọn kiểu **Kanban** (dòng chảy liên tục) hoặc **Scrum** (chia theo Sprint, có Burndown/Velocity Chart).
+**NDT Task** is a lightweight Jira/Trello-style work management app: each **Workspace** (a team/project) has one **Board**, a Board is split into **Columns**, and each Column holds **Tasks**. A Workspace can be either **Kanban** (a continuous flow) or **Scrum** (organized into Sprints, with a Burndown/Velocity chart).
 
-Repo này là **Backend API** — nơi xử lý toàn bộ logic nghiệp vụ, xác thực, realtime và lưu trữ. Muốn dùng thử giao diện, xem [repo Frontend](https://github.com/nguyendotai/NDT-Task-Frontend).
+This repo is the **Backend API** — it owns all business logic, authentication, realtime, and persistence. Looking for the UI? See the [Frontend repo](https://github.com/nguyendotai/NDT-Task-Frontend).
 
-## ✨ Tính năng nổi bật
+## ✨ Highlights
 
-| Nhóm | Tính năng |
+| Area | Features |
 | :--- | :--- |
-| 🔐 **Xác thực** | Đăng ký/đăng nhập Email + Password, đăng nhập Google (OAuth), **2FA (TOTP)** tuỳ chọn, quên/đổi mật khẩu, JWT Access + Refresh Token (HTTP-Only Cookie) |
-| 🏢 **Workspace** | Kanban/Scrum, mời thành viên qua email, phân quyền **Owner / Admin / Member**, Public/Private |
-| 🗂️ **Board & Task** | Kéo-thả Task/Column, Priority, Task Type (Task/Bug/Story/Epic), mã Task kiểu `ABC-123`, Assignee, Due date, Story Points, Checklist, Label, Watcher, đính kèm file (Cloudinary), soft-delete + khôi phục |
-| 🏃 **Scrum** | Sprint (Planned/Active/Completed), Backlog, **Burndown Chart** (snapshot theo ngày qua cron BullMQ) & **Velocity Chart** |
-| ⏱️ **Time Tracking** | Ghi nhận số giờ làm việc thủ công theo từng Task |
-| 💬 **Cộng tác** | Comment, Activity Log (audit trail đầy đủ theo Workspace), Notification trong app (tuỳ chỉnh theo loại), Docs (rich-text theo Workspace) |
-| ⚡ **Realtime** | Socket.IO — đồng bộ Board/Task/Comment/Notification tức thời cho mọi thành viên đang mở cùng Workspace, kèm Presence (online) & Typing Indicator |
-| 🔍 **Tìm kiếm** | Search toàn hệ thống (Task/Comment/Attachment/Column), Export Task ra CSV |
-| 📚 **API Docs** | Swagger tự sinh tại `/api/v1/docs` |
+| 🔐 **Auth** | Email + password sign-up/sign-in, **Google Sign-In** (OAuth), optional **2FA (TOTP)**, forgot/change password, JWT Access + Refresh Token (HTTP-Only cookie) |
+| 🏢 **Workspace** | Kanban/Scrum, invite members by email, **Owner / Admin / Member** roles, Public/Private |
+| 🗂️ **Board & Task** | Drag-and-drop Task/Column, Priority, Task Type (Task/Bug/Story/Epic), Jira-style Task keys (`ABC-123`), Assignee, due date, story points, checklist, labels, watchers, file attachments (Cloudinary), soft-delete + restore |
+| 🏃 **Scrum** | Sprints (Planned/Active/Completed), Backlog, **Burndown chart** (daily snapshots via a BullMQ cron job) & **Velocity chart** |
+| ⏱️ **Time Tracking** | Manual work-hour logging per Task |
+| 💬 **Collaboration** | Comments, Activity Log (a full audit trail per Workspace), in-app Notifications (configurable per type), Docs (rich text per Workspace) |
+| ⚡ **Realtime** | Socket.IO — instantly syncs Board/Task/Comment/Notification for everyone with the same Workspace open, plus online Presence & Typing indicators |
+| 🔍 **Search** | Search across the whole system (Task/Comment/Attachment/Column), export a Task list to CSV |
+| 📚 **API Docs** | Auto-generated Swagger UI at `/api/v1/docs` |
 
-## 🛠️ Công nghệ sử dụng
+## 🛠️ Tech Stack
 
-- **Framework**: [NestJS](https://nestjs.com) (TypeScript, kiến trúc Controller → Service → Repository)
+- **Framework**: [NestJS](https://nestjs.com) (TypeScript, Controller → Service → Repository architecture)
 - **Database**: MongoDB + [Prisma ORM](https://www.prisma.io)
-- **Cache/Queue**: Redis + [BullMQ](https://docs.bullmq.io) (mail, cron chụp snapshot Sprint...)
+- **Cache/Queue**: Redis + [BullMQ](https://docs.bullmq.io) (mail, the Sprint-snapshot cron job...)
 - **Realtime**: Socket.IO
 - **Auth**: JWT (`@nestjs/jwt`, `passport-jwt`), Google OAuth (`google-auth-library`), 2FA (`otplib` + `qrcode`)
-- **File Storage**: Cloudinary
+- **File storage**: Cloudinary
 - **Mail**: Nodemailer (SMTP)
 - **Docs**: Swagger (`@nestjs/swagger`)
-- **Test**: Jest (unit test cho các Service nghiệp vụ trọng yếu)
+- **Testing**: Jest (unit tests for the core business-logic Services)
 
-## 📂 Cấu trúc thư mục
+## 📂 Project Structure
 
 ```
 src/
-├── modules/          # Mỗi domain 1 module riêng (Controller → Service → Repository)
-│   ├── auth/            # Đăng ký/đăng nhập, Google OAuth, 2FA, refresh token
-│   ├── workspace/        # Workspace, thành viên, lời mời, activity log cấp workspace
-│   ├── board/ column/    # Board và các Column (trạng thái) trong Board
-│   ├── task/             # Task — CRUD, kéo-thả, star, watcher
-│   ├── sprint/           # Sprint, Burndown/Velocity, cron snapshot (BullMQ)
-│   ├── comment/ checklist/ label/ attachment/  # Các thành phần con của Task
-│   ├── timelog/          # Time Tracking thủ công
-│   ├── notification/     # Thông báo trong app + tuỳ chỉnh theo loại
-│   ├── activity/         # Activity Log dùng chung (audit trail)
-│   ├── docs/             # Tài liệu rich-text theo Workspace
-│   ├── search/           # Tìm kiếm toàn hệ thống
-│   ├── realtime/         # Socket.IO Gateway
-│   └── user/             # Hồ sơ người dùng
-├── database/          # Prisma schema (schema.prisma), seed, PrismaService
-├── config/            # Cấu hình theo module (jwt, cors, mail, cloudinary...)
-└── common/            # Guard, Interceptor, Filter, Decorator dùng chung
+├── modules/          # One module per domain (Controller → Service → Repository)
+│   ├── auth/             # Sign-up/sign-in, Google OAuth, 2FA, refresh token
+│   ├── workspace/        # Workspace, members, invitations, workspace-level activity log
+│   ├── board/ column/    # Board and the Columns (statuses) inside it
+│   ├── task/             # Task — CRUD, drag-and-drop, star, watchers
+│   ├── sprint/           # Sprint, Burndown/Velocity, cron snapshots (BullMQ)
+│   ├── comment/ checklist/ label/ attachment/  # Task sub-resources
+│   ├── timelog/          # Manual Time Tracking
+│   ├── notification/     # In-app notifications + per-type preferences
+│   ├── activity/         # Shared Activity Log (audit trail)
+│   ├── docs/             # Rich-text docs per Workspace
+│   ├── search/           # System-wide search
+│   ├── realtime/         # Socket.IO gateway
+│   └── user/             # User profile
+├── database/          # Prisma schema (schema.prisma), seed script, PrismaService
+├── config/            # Per-module configuration (jwt, cors, mail, cloudinary...)
+└── common/            # Shared guards, interceptors, filters, decorators
 ```
 
-## 🚀 Bắt đầu nhanh
+## 🚀 Getting Started
 
-### Yêu cầu
+### Requirements
 
 - Node.js 20+
-- **MongoDB chạy dưới dạng Replica Set** (kể cả 1 node) — Prisma dùng Transaction cho nhiều thao tác quan trọng (tạo Workspace kèm Board/Column mặc định, Complete Sprint...), mà MongoDB **standalone không hỗ trợ multi-document transaction**. Nếu chưa có sẵn:
+- **MongoDB running as a Replica Set** (even a single node) — Prisma relies on Transactions for several important operations (creating a Workspace with its default Board/Columns, completing a Sprint...), and **standalone MongoDB doesn't support multi-document transactions**. If you don't have one set up yet:
   ```bash
-  # Khởi động mongod với replica set
-  mongod --replSet rs0 --dbpath <đường-dẫn-data>
+  # Start mongod with a replica set
+  mongod --replSet rs0 --dbpath <your-data-path>
 
-  # Ở terminal khác, khởi tạo replica set (chỉ cần chạy 1 lần)
+  # In another terminal, initialize the replica set (only needs to run once)
   mongosh --eval "rs.initiate()"
   ```
-- Redis (dùng cho BullMQ) — local hoặc cloud free-tier như [Upstash](https://upstash.com)
+- Redis (used by BullMQ) — local or a free cloud tier like [Upstash](https://upstash.com)
 
-### Cài đặt
+### Installation
 
 ```bash
 npm install
-cp .env.example .env   # rồi điền giá trị thật (xem bảng bên dưới)
-npm run db:push        # đồng bộ Prisma Schema vào MongoDB
-npm run start:dev       # http://localhost:5000, Swagger tại /api/v1/docs
+cp .env.example .env   # then fill in real values (see the table below)
+npm run db:push        # sync the Prisma schema into MongoDB
+npm run start:dev       # http://localhost:5000, Swagger at /api/v1/docs
 ```
 
-### Biến môi trường chính (`.env`)
+### Key environment variables (`.env`)
 
-| Biến | Mô tả |
+| Variable | Description |
 | :--- | :--- |
-| `DATABASE_URL` | Chuỗi kết nối MongoDB, **bắt buộc có `?replicaSet=rs0`** |
-| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Secret ký JWT — đổi giá trị thật khi deploy, đừng dùng giá trị mẫu |
-| `JWT_ACCESS_EXPIRES_IN` | Thời gian sống Access Token (mặc định `15m`) |
-| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` / `REDIS_TLS` | Kết nối Redis cho BullMQ (mail queue, cron Sprint snapshot) |
-| `SMTP_*` / `MAIL_FROM` | Gửi mail thật (mời thành viên, quên mật khẩu) — để trống nếu chưa cần test mail |
-| `CLOUDINARY_*` | Upload avatar/attachment — để trống nếu chưa cần test upload file |
-| `CORS_ORIGIN` | Domain Frontend được phép gọi API (cách nhau bằng dấu phẩy nếu nhiều domain) |
-| `GOOGLE_CLIENT_ID` | Bật đăng nhập Google — để trống thì nút Google tự ẩn ở Frontend |
+| `DATABASE_URL` | MongoDB connection string — **must include `?replicaSet=rs0`** |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | JWT signing secrets — replace with real values in production, don't keep the sample ones |
+| `JWT_ACCESS_EXPIRES_IN` | Access Token lifetime (default `15m`) |
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` / `REDIS_TLS` | Redis connection for BullMQ (mail queue, Sprint-snapshot cron) |
+| `SMTP_*` / `MAIL_FROM` | Real email sending (invitations, forgot-password) — leave blank if you don't need to test email |
+| `CLOUDINARY_*` | Avatar/attachment uploads — leave blank if you don't need to test file upload |
+| `CORS_ORIGIN` | Frontend domain(s) allowed to call the API (comma-separated for multiple) |
+| `GOOGLE_CLIENT_ID` | Enables Google Sign-In — leave blank and the Google button hides itself on the Frontend |
 
-Xem đầy đủ trong [`.env.example`](.env.example).
+See the full list in [`.env.example`](.env.example).
 
-### Các lệnh hay dùng
+### Handy scripts
 
 ```bash
-npm run start:dev     # Chạy dev, tự reload khi sửa code
-npm run build          # Build production
-npm run start:prod     # Chạy bản build
+npm run start:dev     # Run in dev mode, hot-reload on save
+npm run build           # Production build
+npm run start:prod      # Run the built app
 
-npm run test            # Unit test (Jest)
-npm run test:cov        # Unit test kèm coverage
-npm run lint             # ESLint (tự fix)
+npm run test             # Unit tests (Jest)
+npm run test:cov         # Unit tests with coverage
+npm run lint              # ESLint (auto-fix)
 
-npm run db:push         # Đồng bộ Prisma Schema -> MongoDB (không tạo migration file, phù hợp MongoDB)
-npm run db:studio       # Mở Prisma Studio xem/sửa dữ liệu trực quan
+npm run db:push          # Sync the Prisma schema -> MongoDB (no migration files, fits MongoDB)
+npm run db:studio        # Open Prisma Studio to browse/edit data visually
 ```
 
-## 🧪 Kiểm thử
+## 🧪 Testing
 
-Unit test tập trung vào các Service nghiệp vụ quan trọng nhất (`AuthService`, `TaskService`, `SprintService`) — quyền chỉnh sửa Task, luồng đăng nhập 2FA, ràng buộc trạng thái Sprint, tính toán Burndown/Velocity...
+Unit tests focus on the most business-critical Services (`AuthService`, `TaskService`, `SprintService`) — Task edit permissions, the 2FA login flow, Sprint state constraints, Burndown/Velocity calculations...
 
 ```bash
 npm run test
@@ -135,8 +135,8 @@ npm run test
 
 ## 📚 API Docs
 
-Sau khi chạy `npm run start:dev`, mở **http://localhost:5000/api/v1/docs** để xem toàn bộ endpoint qua Swagger UI, thử request trực tiếp trên trình duyệt.
+After running `npm run start:dev`, open **http://localhost:5000/api/v1/docs** to browse every endpoint through Swagger UI and try requests right from the browser.
 
-## 🔗 Repo liên quan
+## 🔗 Related repos
 
 - **Frontend**: [github.com/nguyendotai/NDT-Task-Frontend](https://github.com/nguyendotai/NDT-Task-Frontend)
